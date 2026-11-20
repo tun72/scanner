@@ -10,3 +10,4 @@ coverage/
 # dev-loop local evidence that should not be committed
 .dev-loop/**/*.chat/
 evals/verdicts/local/
+.dev-loop/*
