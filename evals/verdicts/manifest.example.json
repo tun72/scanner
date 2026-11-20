@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "reflux": { "conditions": ["gerd"] },
+    "gastritis": { "conditions": ["gastritis"] },
+    "ibs": { "conditions": ["ibs"] },
+    "lactose": { "conditions": ["lactose-intolerance"] }
+  },
+  "cases": [
+    { "id": "reflux-01", "profile": "reflux", "photo": "photos/reflux-01.jpg", "expectedLevel": "avoid" },
+    { "id": "gastritis-01", "profile": "gastritis", "photo": "photos/gastritis-01.jpg", "expectedLevel": "safe" },
+    { "id": "ibs-01", "profile": "ibs", "photo": "photos/ibs-01.jpg", "expectedLevel": "caution" },
+    { "id": "lactose-01", "profile": "lactose", "photo": "photos/lactose-01.jpg", "expectedLevel": "unsure" }
+  ]
+}

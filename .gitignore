@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# dev-loop local evidence that should not be committed
+.dev-loop/**/*.chat/
+evals/verdicts/local/

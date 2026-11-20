@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: food-scanner-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPEN_FOOD_FACTS_USER_AGENT
+        sync: false
