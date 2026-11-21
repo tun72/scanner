@@ -116,6 +116,7 @@ export default function LoginScreen() {
             ]}>
             <Text style={shared.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
           </Pressable>
+          {Platform.OS === 'web' && <InstallApp />}
         </View>
       </View>
       {!compact && <View style={styles.footer}>
@@ -138,6 +139,42 @@ export default function LoginScreen() {
         </ScrollView>
       ) : content}
     </GlassBackground>
+  );
+}
+
+function InstallApp() {
+  const [browser, setBrowser] = useState<'chrome' | 'other'>();
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const device = window.navigator as Navigator & { standalone?: boolean };
+    const appleMobile = /iPhone|iPad|iPod/.test(device.userAgent)
+      || (device.platform === 'MacIntel' && device.maxTouchPoints > 1);
+    if (!appleMobile || device.standalone || window.matchMedia('(display-mode: standalone)').matches) return;
+    setBrowser(/CriOS/.test(device.userAgent) ? 'chrome' : 'other');
+  }, []);
+
+  if (!browser) return null;
+
+  return (
+    <View style={styles.install}>
+      <Pressable
+        accessibilityRole="button"
+        aria-expanded={expanded}
+        onPress={() => setExpanded(value => !value)}
+        style={({ pressed }) => [styles.installButton, pressed && styles.revealPressed]}
+      >
+        <Text style={styles.revealText}>Install App</Text>
+      </Pressable>
+      {expanded && (
+        <View style={styles.installHelp}>
+          <Text accessibilityRole="header" style={styles.label}>Add Food Scanner to your Home Screen</Text>
+          <Text style={shared.muted}>{browser === 'chrome' ? '1. Tap Share next to Chrome’s address bar.' : '1. Open your browser’s Share menu.'}</Text>
+          <Text style={shared.muted}>2. Tap Add to Home Screen.</Text>
+          <Text style={shared.muted}>3. Tap Add, then open Food Scanner from its new icon.</Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -178,6 +215,12 @@ const styles = StyleSheet.create({
   submit: { borderRadius: 12, marginTop: 2, minHeight: 54 },
   compactButton: { minHeight: 48, paddingVertical: 9 },
   submitPressed: { backgroundColor: colors.primaryPressed },
+  install: { gap: 8 },
+  installButton: {
+    minHeight: 44, padding: 8, alignItems: 'center', justifyContent: 'center',
+    borderColor: colors.border, borderWidth: 1, borderRadius: 12,
+  },
+  installHelp: { gap: 6, padding: 12, backgroundColor: colors.tintLight, borderRadius: 12 },
   error: { color: colors.problem, backgroundColor: '#FFF1F2', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, lineHeight: 20 },
   footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 14 },
   credit: { textAlign: 'center', fontSize: 12 },
