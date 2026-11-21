@@ -1,4 +1,5 @@
 import type { ConditionId, ScanProfile } from '@food-scanner/contracts';
+import { setTimeout as delay } from 'node:timers/promises';
 import sharp from 'sharp';
 import { z } from 'zod';
 import type { FoodJudge, JudgeResult, TokenUsage } from '../assessment/food-judge.ts';
@@ -110,53 +111,78 @@ function draftFor(facts: FoodFacts, profile: ScanProfile, isPhoto: boolean): Ver
 }
 
 type FoodInput = { inlineData: { mimeType: 'image/jpeg'; data: string } } | { text: string };
+type Recognition = Extract<JudgeResult, { ok: false }> | { facts: FoodFacts; usage: TokenUsage };
+
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
+const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_RETRY_DELAY_MS = 2_500;
+const RETRYABLE_STATUSES = new Set([408, 500, 502, 503, 504]);
+
+function retryDelay(response: Response, backoffMs: number): number | undefined {
+  if (!RETRYABLE_STATUSES.has(response.status)) return undefined;
+  const header = response.headers.get('retry-after')?.trim();
+  if (!header) return backoffMs;
+  const requestedMs = /^\d+$/.test(header) ? Number(header) * 1000 : Date.parse(header) - Date.now();
+  if (requestedMs > MAX_RETRY_DELAY_MS) return undefined;
+  return Number.isFinite(requestedMs) ? Math.max(backoffMs, requestedMs) : backoffMs;
+}
+
+async function readRecognition(response: Response): Promise<Recognition> {
+  const envelope = responseEnvelope.safeParse(await response.json());
+  if (!envelope.success) return { ok: false, failure: 'invalid-reply' };
+  const { candidates, promptFeedback, usageMetadata } = envelope.data;
+  const candidate = candidates?.[0];
+  if (promptFeedback?.blockReason || candidate?.finishReason === 'SAFETY') return { ok: false, failure: 'refusal' };
+  if (candidate?.finishReason === 'MAX_TOKENS') return { ok: false, failure: 'truncated' };
+  if (candidate?.finishReason !== 'STOP') return { ok: false, failure: 'invalid-reply' };
+  const text = candidate.content?.parts.filter(part => !part.thought).map(part => part.text ?? '').join('');
+  const facts = foodFacts.safeParse(JSON.parse(text ?? ''));
+  if (!facts.success) return { ok: false, failure: 'invalid-reply' };
+  return {
+    facts: facts.data,
+    usage: {
+      inputTokens: usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: (usageMetadata?.candidatesTokenCount ?? 0) + (usageMetadata?.thoughtsTokenCount ?? 0),
+    },
+  };
+}
 
 export function createGeminiFoodJudge({
   apiKey, fetcher = fetch, onStatus,
 }: { apiKey: string; fetcher?: typeof fetch; onStatus?: (status: number) => void }): FoodJudge {
-  async function recognize(food: FoodInput): Promise<Extract<JudgeResult, { ok: false }> | { facts: FoodFacts; usage: TokenUsage }> {
-    const signal = AbortSignal.timeout(20_000);
+  async function recognize(body: string, canRetry: boolean): Promise<Recognition> {
+    const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    let waitMs = 600 + Math.floor(Math.random() * 400);
     try {
-      const response = await fetcher('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent', {
+      const response = await fetcher(GEMINI_URL, {
         method: 'POST',
         headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: instruction }] },
-          contents: [{ role: 'user', parts: [food] }],
-          generationConfig: { maxOutputTokens: 2000, responseMimeType: 'application/json', responseJsonSchema },
-        }),
+        body,
         signal,
       });
-      if (!response.ok) {
-        onStatus?.(response.status);
-        await response.body?.cancel();
-        return { ok: false, failure: 'api-error' };
-      }
-      const envelope = responseEnvelope.safeParse(await response.json());
-      if (!envelope.success) return { ok: false, failure: 'invalid-reply' };
-      const { candidates, promptFeedback, usageMetadata } = envelope.data;
-      const candidate = candidates?.[0];
-      if (promptFeedback?.blockReason || candidate?.finishReason === 'SAFETY') return { ok: false, failure: 'refusal' };
-      if (candidate?.finishReason === 'MAX_TOKENS') return { ok: false, failure: 'truncated' };
-      if (candidate?.finishReason !== 'STOP') return { ok: false, failure: 'invalid-reply' };
-      const text = candidate.content?.parts.filter(part => !part.thought).map(part => part.text ?? '').join('');
-      const facts = foodFacts.safeParse(JSON.parse(text ?? ''));
-      if (!facts.success) return { ok: false, failure: 'invalid-reply' };
-      return {
-        facts: facts.data,
-        usage: {
-          inputTokens: usageMetadata?.promptTokenCount ?? 0,
-          outputTokens: (usageMetadata?.candidatesTokenCount ?? 0) + (usageMetadata?.thoughtsTokenCount ?? 0),
-        },
-      };
+      if (response.ok) return await readRecognition(response);
+      onStatus?.(response.status);
+      await response.body?.cancel().catch(() => undefined);
+      const retryMs = canRetry ? retryDelay(response, waitMs) : undefined;
+      if (retryMs === undefined) return { ok: false, failure: 'api-error' };
+      waitMs = retryMs;
     } catch (error) {
-      return { ok: false, failure: signal.aborted ? 'timeout' : error instanceof SyntaxError ? 'invalid-reply' : 'api-error' };
+      const failure = signal.aborted ? 'timeout' : error instanceof SyntaxError ? 'invalid-reply' : 'api-error';
+      if (!canRetry || (!signal.aborted && !(error instanceof TypeError))) return { ok: false, failure };
     }
+    // Both attempts and the pause fit inside the app's single assessment request.
+    await delay(waitMs);
+    return recognize(body, false);
   }
 
   async function judge(food: FoodInput, profile: ScanProfile): Promise<JudgeResult> {
     // The outbound call accepts food data only. The user's profile is used here on the server.
-    const result = await recognize(food);
+    const body = JSON.stringify({
+      systemInstruction: { parts: [{ text: instruction }] },
+      contents: [{ role: 'user', parts: [food] }],
+      generationConfig: { maxOutputTokens: 2000, responseMimeType: 'application/json', responseJsonSchema },
+    });
+    const result = await recognize(body, true);
     if ('ok' in result) return result;
     return { ok: true, draft: draftFor(result.facts, profile, 'inlineData' in food), usage: result.usage };
   }

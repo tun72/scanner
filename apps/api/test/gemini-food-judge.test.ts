@@ -20,10 +20,10 @@ describe('Gemini food-only mode', () => {
     expect(() => loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', ANTHROPIC_API_KEY: 'old-provider' })).toThrow('GEMINI_API_KEY is not set.');
   });
 
-  it('requires confirmation, strips image metadata, and applies profile rules without sending the profile to Google', async () => {
+  it('handles a 503 within one scan, after confirming the photo and removing its metadata', async () => {
     const jpeg = await sharp({ create: { width: 32, height: 24, channels: 3, background: 'white' } })
       .jpeg().withExif({ IFD0: { Artist: 'Private metadata sample' } }).toBuffer();
-    const fetcher = vi.fn<typeof fetch>(async () => response());
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, { status: 503 })).mockResolvedValueOnce(response());
     const requireFoodOnlyPhoto = true;
     const assessFood = createAssessFood({
       judge: createGeminiFoodJudge({ apiKey: 'fixture', fetcher }), products: fakeProducts(),
@@ -45,8 +45,10 @@ describe('Gemini food-only mode', () => {
         foodName: 'Rice with cream', level: 'caution',
         flaggedIngredients: ['Lactose-containing dairy', 'Personal triggers'],
       });
-      expect(fetcher).toHaveBeenCalledOnce();
+      expect(fetcher).toHaveBeenCalledTimes(2);
       const [url, options] = fetcher.mock.calls[0]!;
+      expect(fetcher.mock.calls[1]![1]?.body).toBe(options?.body);
+      expect(fetcher.mock.calls[1]![1]?.signal).not.toBe(options?.signal);
       expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
       expect(options?.headers).toMatchObject({ 'x-goog-api-key': 'fixture' });
       const body = String(options?.body);
@@ -65,7 +67,31 @@ describe('Gemini food-only mode', () => {
     const judge = createGeminiFoodJudge({ apiKey: 'fixture', fetcher });
     const input = { profile: { conditions: ['ibs' as const] }, locale: 'en', product: { barcode: '3017620422003', name: 'Thyme crackers', allergens: [] } };
     await expect(judge.judgeProduct(input)).resolves.toEqual({ ok: false, failure: 'api-error' });
+    expect(fetcher).toHaveBeenCalledOnce();
     await expect(judge.judgeProduct(input)).resolves.toEqual({ ok: false, failure: 'refusal' });
+    expect(fetcher).toHaveBeenCalledTimes(2);
     expect(String(fetcher.mock.calls[0]![1]?.body)).toContain('Thyme crackers');
+  });
+
+  it('retries an interrupted connection only once', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    const judge = createGeminiFoodJudge({ apiKey: 'fixture', fetcher });
+    const input = { profile: { conditions: ['ibs' as const] }, locale: 'en', product: { barcode: '3017620422003', name: 'Crackers', allergens: [] } };
+
+    await expect(judge.judgeProduct(input)).resolves.toEqual({ ok: false, failure: 'api-error' });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops when Gemini asks to retry after the scan window', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, {
+      status: 503, headers: { 'retry-after': '120' },
+    }));
+    const judge = createGeminiFoodJudge({ apiKey: 'fixture', fetcher });
+    const input = { profile: { conditions: ['ibs' as const] }, locale: 'en', product: { barcode: '3017620422003', name: 'Crackers', allergens: [] } };
+
+    await expect(judge.judgeProduct(input)).resolves.toEqual({ ok: false, failure: 'api-error' });
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 });
