@@ -12,7 +12,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.9.0",
     "@fastify/rate-limit": "^11.2.2",
-    "@fastify/static": "^9.3.0",
     "@food-scanner/contracts": "*",
     "cloudinary": "^2.11.0",
     "fastify": "^5.12.8",
