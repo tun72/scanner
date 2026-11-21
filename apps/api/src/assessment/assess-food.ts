@@ -21,6 +21,7 @@ export interface AssessFoodDeps {
   products: ProductLookup;
   /** The clock is passed in so the time on a verdict can be tested. */
   now: () => Date;
+  requireFoodOnlyPhoto?: boolean;
 }
 
 /** Judges one scan request. Takes the raw body: deciding what is acceptable is part of this use case. */
@@ -54,7 +55,7 @@ function toResponse(verdict: Verdict, source: VerdictResponse['source'], foodNam
  *
  * Nothing here stores or logs the photo, the barcode or the profile: they live only for the length of the call.
  */
-export function createAssessFood({ judge, products, now }: AssessFoodDeps): AssessFood {
+export function createAssessFood({ judge, products, now, requireFoodOnlyPhoto = false }: AssessFoodDeps): AssessFood {
   /** A photo goes straight to the judge; a barcode is first turned into the product's listed facts. */
   async function judgeScan(request: ScanRequest): Promise<Judged> {
     const { profile, locale } = request;
@@ -75,6 +76,12 @@ export function createAssessFood({ judge, products, now }: AssessFoodDeps): Asse
     const check = checkScanRequest(body);
     if (!check.ok) return { kind: 'refused', error: check.error, ...(check.scanKind === undefined ? {} : { scanKind: check.scanKind }) };
     const scanKind = check.request.kind;
+    if (requireFoodOnlyPhoto && check.request.kind === 'photo' && !check.request.foodOnly) {
+      return {
+        kind: 'refused', scanKind,
+        error: { code: 'invalid-request', message: 'Confirm that your photo shows only food before scanning.' },
+      };
+    }
 
     const result = await judgeScan(check.request);
     if ('kind' in result) return result;

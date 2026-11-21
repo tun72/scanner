@@ -34,8 +34,8 @@ export default function NoticeScreen() {
         <GlassCard>
           <Text style={shared.heading} accessibilityRole="header">How we use your scans</Text>
           <Text style={shared.body}>
-            When you scan, we send your selected conditions, optional notes, and your photo or product information to Anthropic to generate the verdict.
-            Barcode numbers are sent to Open Food Facts. Your profile settings are saved on this phone.
+            Food Scanner uses your photo or public product information and your profile to check foods. In Anthropic mode, your selected conditions and optional notes are sent to Anthropic with the food information.
+            In Gemini mode, Google receives food information only. The app asks you to review the image before sharing a photo with Gemini.
           </Text>
           <Text style={shared.body}>Your account stores your name, roll number and verdicts. Cloudinary stores successful scan photos privately so you can view them on another phone.</Text>
           <Text style={shared.body}>You can delete scans and their photos from History.</Text>

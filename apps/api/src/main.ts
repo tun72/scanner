@@ -4,6 +4,7 @@ import { loadConfig } from './config.ts';
 import { buildServer } from './http/server.ts';
 import { serveWebApp } from './http/web-app.ts';
 import { createClaudeFoodJudge } from './infrastructure/claude-food-judge.ts';
+import { createGeminiFoodJudge } from './infrastructure/gemini-food-judge.ts';
 import { createOpenFoodFactsLookup } from './infrastructure/open-food-facts-lookup.ts';
 import { createAccounts } from './cloud/accounts.ts';
 import { createCloudDatabase, migrateCloudDatabase } from './cloud/database.ts';
@@ -13,13 +14,18 @@ import { createCloudinaryMedia } from './cloud/media.ts';
 // Wires the real parts together and starts listening. All decisions live in the modules above.
 const config = loadConfig(process.env);
 
-const claude = new Anthropic({ apiKey: config.anthropicApiKey, timeout: config.claudeTimeoutMs, maxRetries: config.claudeMaxRetries });
-const judge = createClaudeFoodJudge({
-  messages: claude.beta.messages, model: config.model,
-  onApiError: details => server.log.warn(details, 'Anthropic request failed'),
-});
+const requireFoodOnlyPhoto = config.geminiApiKey !== undefined;
+const judge = config.geminiApiKey !== undefined
+  ? createGeminiFoodJudge({ apiKey: config.geminiApiKey, onStatus: status => server.log.warn({ status }, 'Gemini request failed') })
+  : createClaudeFoodJudge({
+    messages: new Anthropic({
+      apiKey: config.anthropicApiKey, timeout: config.claudeTimeoutMs, maxRetries: config.claudeMaxRetries,
+    }).beta.messages,
+    model: config.model,
+    onApiError: details => server.log.warn(details, 'Anthropic request failed'),
+  });
 const products = createOpenFoodFactsLookup({ baseUrl: config.openFoodFactsUrl, userAgent: config.openFoodFactsUserAgent, timeoutMs: config.productLookupTimeoutMs });
-const assessFood = createAssessFood({ judge, products, now: () => new Date() });
+const assessFood = createAssessFood({ judge, products, requireFoodOnlyPhoto, now: () => new Date() });
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const cloudinaryUrl = process.env.CLOUDINARY_URL?.trim();
 if (Boolean(databaseUrl) !== Boolean(cloudinaryUrl)) throw new Error('Configure both DATABASE_URL and CLOUDINARY_URL for account sync.');
@@ -37,7 +43,9 @@ const cloud = database && cloudinaryUrl ? {
 } : undefined;
 const webRoot = process.env.WEB_ROOT?.trim();
 if (webRoot && !cloud) throw new Error('The web app requires DATABASE_URL and CLOUDINARY_URL.');
-const server = buildServer({ assessFood, trustedProxies: config.trustedProxies, logLevel: config.logLevel, ...(cloud ? { cloud } : {}) });
+const server = buildServer({
+  assessFood, requireFoodOnlyPhoto, trustedProxies: config.trustedProxies, logLevel: config.logLevel, ...(cloud ? { cloud } : {}),
+});
 if (webRoot) serveWebApp(server, webRoot);
 if (cloud && database) {
   let cleanup: Promise<void> | undefined;

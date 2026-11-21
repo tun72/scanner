@@ -25,7 +25,7 @@ export interface VerdictDraft {
 }
 
 const draftRange = z.object({ min: z.number(), max: z.number() });
-const photoDraft = z.object({
+export const photoDraft = z.object({
   portionGrams: z.number().nullable(),
   calories: draftRange.nullable(),
   protein: draftRange.nullable(),

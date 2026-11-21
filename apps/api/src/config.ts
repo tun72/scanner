@@ -1,8 +1,7 @@
 /** Runtime settings for the API, read once at startup. */
-export interface ApiConfig {
+interface CommonApiConfig {
   host: string;
   port: number;
-  anthropicApiKey: string;
   model: string;
   claudeTimeoutMs: number;
   claudeMaxRetries: number;
@@ -12,6 +11,11 @@ export interface ApiConfig {
   trustedProxies: string[];
   logLevel: string;
 }
+
+export type ApiConfig = CommonApiConfig & (
+  | { anthropicApiKey: string; geminiApiKey?: never }
+  | { geminiApiKey: string; anthropicApiKey?: never }
+);
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_MODEL = 'claude-opus-5-5';
@@ -45,12 +49,14 @@ function readTrustedProxies(value: string | undefined): string[] {
  * The Claude key comes only from ANTHROPIC_API_KEY, and its value is never put in an error or a log.
  */
 export function loadConfig(env: Readonly<Record<string, string | undefined>>): ApiConfig {
-  const anthropicApiKey = env.ANTHROPIC_API_KEY?.trim();
-  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY is not set. Set it in the environment of the API process.');
+  const useGemini = env.FOOD_SCAN_PROVIDER === 'gemini';
+  const keyName = useGemini ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY';
+  const apiKey = env[keyName]?.trim();
+  if (!apiKey) throw new Error(`${keyName} is not set. Set it in the environment of the API process.`);
   return {
     host: env.HOST?.trim() || '0.0.0.0',
     port: readPort(env.PORT),
-    anthropicApiKey,
+    ...(useGemini ? { geminiApiKey: apiKey } : { anthropicApiKey: apiKey }),
     model: env.CLAUDE_MODEL?.trim() || DEFAULT_MODEL,
     claudeTimeoutMs: CLAUDE_TIMEOUT_MS,
     claudeMaxRetries: CLAUDE_MAX_RETRIES,

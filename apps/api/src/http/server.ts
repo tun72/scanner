@@ -27,6 +27,7 @@ export interface ServerOptions {
   /** Where log lines go; standard output when left out. */
   logStream?: NodeJS.WritableStream;
   cloud?: CloudServices;
+  requireFoodOnlyPhoto?: boolean;
 }
 
 /** Above the 1.5 MB photo limit once base64-encoded, so the photo rule, not this limit, decides. */
@@ -73,7 +74,7 @@ const refuseWhenOver = (check: LimitCheck) => async (request: FastifyRequest, re
 };
 
 /** Builds the HTTP server around the use case. Starting it is left to the caller. */
-export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trustedProxies = [], logLevel = 'info', logStream, cloud }: ServerOptions): FastifyInstance {
+export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trustedProxies = [], logLevel = 'info', logStream, cloud, requireFoodOnlyPhoto = false }: ServerOptions): FastifyInstance {
   const server = Fastify({
     bodyLimit: BODY_LIMIT_BYTES,
     trustProxy: trustedProxies.length > 0 ? [...trustedProxies] : false,
@@ -98,6 +99,7 @@ export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trus
   server.register(rateLimit, { global: false });
 
   server.get('/health', async () => ({ status: 'ok' }));
+  server.get('/v1/photo-sharing', (_, reply) => reply.header('cache-control', 'no-store').send({ requireFoodOnlyPhoto }));
   if (cloud) registerCloudRoutes(server, cloud);
 
   server.register(async (scans) => {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { rememberCloudScan, retryCloudPhoto } from '../account/history.ts';
-import { activeSession } from '../account/session.ts';
+import { accountRequest, AccountRequestError, activeSession } from '../account/session.ts';
 import { VerdictCard } from '../history/verdict-card.tsx';
 import { ACTION_LABELS, describeFailure, type FailureAction } from '../scan/scan-failure.ts';
 import type { ScanFailure } from '../scan/scan-outcome.ts';
@@ -43,6 +43,7 @@ export default function ScanScreen() {
 type Phase =
   | { name: 'camera' }
   | { name: 'preparing' }
+  | { name: 'confirm-photo'; scan: PreparedScan }
   | { name: 'checking'; scan: PreparedScan }
   | { name: 'verdict'; verdict: VerdictResponse; photo: string | null; cloud?: CloudScan; saved: 'saving' | 'saved' | 'failed' }
   | { name: 'failed'; failure: ScanFailure; kind: ScanRequest['kind']; scan: PreparedScan | null };
@@ -89,7 +90,28 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
     const attempt = ++version.current;
     setPhase({ name: 'preparing' });
     const prepared = await scanFood.preparePhoto(photo, scanner);
-    if (version.current === attempt) sendPrepared(prepared, 'photo');
+    if (version.current !== attempt) return;
+    if (prepared.ok && activeSession()) {
+      try {
+        const response = await accountRequest('/v1/photo-sharing', {}, null);
+        const policy: unknown = await response.json();
+        if (version.current !== attempt) return;
+        if (typeof policy !== 'object' || policy === null || !('requireFoodOnlyPhoto' in policy)
+          || typeof policy.requireFoodOnlyPhoto !== 'boolean') throw new Error('Invalid photo policy');
+        if (policy.requireFoodOnlyPhoto) {
+          setPhase({ name: 'confirm-photo', scan: prepared.scan });
+          return;
+        }
+      } catch (error) {
+        if (version.current !== attempt) return;
+        // Older API deployments have no Gemini photo policy.
+        if (!(error instanceof AccountRequestError) || error.status !== 404) {
+          setPhase({ name: 'failed', failure: { reason: 'not-sendable' }, kind: 'photo', scan: null });
+          return;
+        }
+      }
+    }
+    sendPrepared(prepared, 'photo');
   };
   const onBarcode = (barcode: string) => sendPrepared(scanFood.prepareBarcode(barcode, scanner), 'barcode');
   const backToCamera = () => { version.current += 1; setRetryFailed(false); setPhase({ name: 'camera' }); };
@@ -115,6 +137,24 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
   switch (phase.name) {
     case 'camera':
       return <Camera onPhoto={onPhoto} onBarcode={onBarcode} mode={mode} onBack={done} />;
+    case 'confirm-photo': {
+      const { scan } = phase;
+      if (scan.request.kind !== 'photo') return null;
+      const request = { ...scan.request, foodOnly: true as const };
+      return (
+        <GlassBackground>
+          <ScrollView contentContainerStyle={[shared.screen, { paddingTop: insets.top + 16 }]}>
+            <GlassCard>
+              <Text style={shared.title} accessibilityRole="header">Check your photo</Text>
+              <Text style={shared.body}>Google Gemini identifies the food in this photo. Use a photo that shows only food, with no people, addresses, or other personal details.</Text>
+              <Image source={{ uri: `data:image/jpeg;base64,${request.photo}` }} style={{ width: '100%', height: 220 }} resizeMode="contain" accessibilityLabel="Photo to scan" />
+            </GlassCard>
+            <Button label="Confirm food-only photo and scan" onPress={() => void send({ ...scan, request })} />
+            <Button label="Choose a different photo" onPress={backToCamera} secondary />
+          </ScrollView>
+        </GlassBackground>
+      );
+    }
     case 'preparing':
     case 'checking':
       return <Checking request={phase.name === 'checking' ? phase.scan.request : null} onBack={done} />;
