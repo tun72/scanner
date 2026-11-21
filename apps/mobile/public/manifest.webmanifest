@@ -1,0 +1,14 @@
+{
+  "id": "/",
+  "name": "Food Scanner",
+  "short_name": "Food Scanner",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EDF1DD",
+  "theme_color": "#EDF1DD",
+  "icons": [
+    { "src": "/app-icon.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}

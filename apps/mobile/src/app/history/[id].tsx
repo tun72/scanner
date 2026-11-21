@@ -1,13 +1,15 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { canRetryPhoto, retryCloudPhoto, scanPhotoSource } from '../../account/history.ts';
+import { canRetryPhoto, retryCloudPhoto } from '../../account/history.ts';
+import { useScanPhoto } from '../../account/use-scan-photo';
 import { activeSession } from '../../account/session.ts';
 import type { SavedScan } from '../../history/scan-history.ts';
 import { VerdictCard } from '../../history/verdict-card.tsx';
 import { scanHistory } from '../../services.ts';
 import { colors, shared } from '../../theme.ts';
+import { confirmDelete } from '../../ui/confirm-delete.ts';
 import { GlassBackground } from '../../ui/glass.tsx';
 
 export default function SavedVerdictScreen() {
@@ -25,6 +27,7 @@ function SavedVerdict({ id }: { id: string }) {
   const [attempt, setAttempt] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadFailed, setUploadFailed] = useState(false);
+  const savedPhoto = useScanPhoto(scan && typeof scan === 'object' && scan.photoState === 'ready' ? id : undefined);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -57,12 +60,9 @@ function SavedVerdict({ id }: { id: string }) {
     }
   };
 
-  const confirmDelete = () => {
-    Alert.alert('Delete this scan?', activeSession() ? 'This deletes the verdict and photo from your account.' : 'This removes the saved verdict from this phone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete scan', style: 'destructive', onPress: deleteScan },
-    ]);
-  };
+  const confirmDeleteScan = () => confirmDelete('Delete this scan?',
+    activeSession() ? 'This deletes the verdict and photo from your account.' : 'This removes the saved verdict from this phone.',
+    'Delete scan', () => void deleteScan());
 
   const upload = async () => {
     setUploading(true);
@@ -96,7 +96,7 @@ function SavedVerdict({ id }: { id: string }) {
         ) : scan ? (
           <>
             <VerdictCard verdict={scan.verdict} onBack={back} photo={scan.thumbnail ? { uri: `data:image/jpeg;base64,${scan.thumbnail}` }
-              : scan.photoState === 'ready' ? scanPhotoSource(id) : undefined} />
+              : savedPhoto} />
             <View style={styles.actions}>
               {scan.photoState === 'pending' && <>
                 <Text style={shared.muted}>{uploadFailed ? 'Couldn’t upload the photo. Try again.' : 'Photo upload pending.'}</Text>
@@ -106,7 +106,7 @@ function SavedVerdict({ id }: { id: string }) {
                 </Pressable>}
               </>}
               <Pressable style={[shared.button, shared.buttonSecondary, styles.deleteButton, deleting && shared.buttonDisabled]}
-                accessibilityRole="button" disabled={deleting} onPress={confirmDelete}>
+                accessibilityRole="button" disabled={deleting} onPress={confirmDeleteScan}>
                 <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'Deleting…' : 'Delete scan'}</Text>
               </Pressable>
               {deleteFailed && <Text style={shared.body} accessibilityRole="alert">Couldn't delete this scan. Try again.</Text>}

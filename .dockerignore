@@ -11,6 +11,17 @@
 !apps/api/src/**
 !apps/mobile/
 !apps/mobile/package.json
+!apps/mobile/app.json
+!apps/mobile/metro.config.js
+!apps/mobile/tsconfig.json
+!apps/mobile/assets/
+!apps/mobile/assets/**
+!apps/mobile/public/
+!apps/mobile/public/**
+!apps/mobile/scripts/
+!apps/mobile/scripts/prepare-web.mjs
+!apps/mobile/src/
+!apps/mobile/src/**
 !packages/
 !packages/contracts/
 !packages/contracts/package.json

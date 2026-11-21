@@ -1,8 +1,7 @@
 import type { CloudScan, ScanRequest, VerdictResponse } from '@food-scanner/contracts';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { rememberCloudScan, retryCloudPhoto } from '../account/history.ts';
 import { activeSession } from '../account/session.ts';
@@ -10,7 +9,9 @@ import { VerdictCard } from '../history/verdict-card.tsx';
 import { ACTION_LABELS, describeFailure, type FailureAction } from '../scan/scan-failure.ts';
 import type { ScanFailure } from '../scan/scan-outcome.ts';
 import type { CapturedPhoto, Prepared, PreparedScan } from '../scan/scan-food.ts';
-import { PRODUCT_BARCODE_TYPES, isProductBarcode, type Scanner } from '../scan/scan-request.ts';
+import { Camera } from '../scan/camera';
+import { Button, styles } from '../scan/scan-controls.tsx';
+import type { Scanner } from '../scan/scan-request.ts';
 import { keepVerdict, loadInstallId, profileStore, scanFood } from '../services.ts';
 import { colors, shared } from '../theme.ts';
 import { GlassBackground, GlassCard, GlassIcon } from '../ui/glass.tsx';
@@ -166,99 +167,6 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
   }
 }
 
-/** Step 3 of "Scan a food": one camera for both a photo and a product barcode. */
-function Camera({ onPhoto, onBarcode, mode, onBack }: {
-  onPhoto: (photo: CapturedPhoto) => void; onBarcode: (barcode: string) => void;
-  mode?: 'photo' | 'barcode' | undefined; onBack(): void;
-}) {
-  const insets = useSafeAreaInsets();
-  const [permission, requestPermission] = useCameraPermissions();
-  const camera = useRef<CameraView>(null);
-  const [ready, setReady] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  // The camera reports a barcode many times a second; only the first one, or one photo, starts a scan.
-  const started = useRef(false);
-
-  if (permission === null) return <ActivityIndicator style={styles.fill} />;
-  if (!permission.granted) {
-    return (
-      <ScrollView contentContainerStyle={shared.screen}>
-        <Button label="Back" onPress={onBack} secondary />
-        <View style={[shared.card, styles.callout]}>
-          <Text style={shared.title} accessibilityRole="header">Camera needed</Text>
-          <Text style={shared.body}>Food Scanner uses the camera to photograph your food and read product barcodes.</Text>
-        </View>
-        {permission.canAskAgain ? (
-          <Button label="Allow camera" onPress={() => void requestPermission()} />
-        ) : (
-          <>
-            <Text style={shared.body}>Allow camera access for Food Scanner in your phone's Settings.</Text>
-            <Button label="Open Settings" onPress={() => void Linking.openSettings()} />
-          </>
-        )}
-      </ScrollView>
-    );
-  }
-
-  const takePhoto = async () => {
-    if (camera.current === null || started.current) return;
-    started.current = true;
-    setProblem(null);
-    try {
-      const { uri, width, height } = await camera.current.takePictureAsync();
-      onPhoto({ uri, width, height });
-    } catch {
-      started.current = false;
-      setProblem("We couldn't take that photo. Please try again.");
-    }
-  };
-
-  const barcodeRead = ({ data }: { data: string }) => {
-    if (started.current || !isProductBarcode(data)) return;
-    started.current = true;
-    onBarcode(data);
-  };
-
-  return (
-    <View style={styles.fill}>
-      <CameraView
-        ref={camera}
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: [...PRODUCT_BARCODE_TYPES] }}
-        {...(mode !== 'photo' ? { onBarcodeScanned: barcodeRead } : {})}
-        onCameraReady={() => setReady(true)}
-      />
-      <View style={[styles.overlay, { paddingBottom: insets.bottom + 17 }]} pointerEvents="box-none">
-        <View style={{ marginTop: insets.top }}>
-          <GlassIcon label="Back" glyph="‹" onPress={onBack} />
-        </View>
-        <View style={styles.framing} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <View style={styles.frame}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
-          </View>
-        </View>
-        <View style={styles.cameraControls}>
-          <Text style={styles.hint}>{mode === 'barcode' ? 'Line up the barcode.' : mode === 'photo' ? 'Fit the food in the frame.' : 'Photograph the food or point at a barcode.'}</Text>
-          {problem !== null && <Text style={styles.hint} accessibilityRole="alert">{problem}</Text>}
-          {mode !== 'barcode' && <Pressable
-            style={[shared.button, !ready && shared.buttonDisabled]}
-            onPress={() => void takePhoto()}
-            disabled={!ready}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !ready }}
-          >
-            <Text style={shared.buttonText}>Take photo</Text>
-          </Pressable>}
-        </View>
-      </View>
-    </View>
-  );
-}
-
 function Checking({ request, onBack }: { request: ScanRequest | null; onBack(): void }) {
   const insets = useSafeAreaInsets();
   const photo = request?.kind === 'photo' ? request.photo : null;
@@ -281,32 +189,3 @@ function Checking({ request, onBack }: { request: ScanRequest | null; onBack(): 
     </GlassBackground>
   );
 }
-
-function Button({ label, onPress, secondary = false, disabled = false }: { label: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
-  return (
-    <Pressable style={[shared.button, secondary && shared.buttonSecondary, disabled && shared.buttonDisabled]} disabled={disabled} onPress={onPress} accessibilityRole="button">
-      <Text style={[shared.buttonText, secondary && shared.buttonSecondaryText]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  loading: { flex: 1 },
-  fill: { flex: 1, backgroundColor: '#000000' },
-  overlay: { flex: 1, justifyContent: 'flex-end', gap: 12, padding: 22 },
-  framing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  frame: { width: '77%', height: '58%', maxWidth: 320, maxHeight: 275 },
-  corner: { position: 'absolute', width: 28, height: 28, borderColor: colors.tint },
-  topLeft: { left: 0, top: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 12 },
-  topRight: { right: 0, top: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 12 },
-  bottomLeft: { left: 0, bottom: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 12 },
-  bottomRight: { right: 0, bottom: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 12 },
-  cameraControls: { borderRadius: 28, gap: 12, padding: 14, backgroundColor: colors.background },
-  hint: { fontSize: 16, lineHeight: 22, color: colors.text, textAlign: 'center' },
-  callout: { backgroundColor: colors.tintLight },
-  resultActions: { padding: 18, gap: 10 },
-  analysis: { flex: 1, paddingHorizontal: 18, justifyContent: 'space-between' },
-  analysisTint: { backgroundColor: 'rgba(18,34,24,0.24)' },
-  analysisFrame: { borderWidth: 2, borderColor: '#FAF4D9', borderRadius: 24, backgroundColor: 'rgba(173,205,159,0.13)' },
-  progress: { alignItems: 'center', padding: 18 },
-});

@@ -11,6 +11,7 @@ export function MascotScene({ style }: { style?: StyleProp<ViewStyle> }) {
   const [playing, setPlaying] = useState(false);
 
   useFocusEffect(useCallback(() => {
+    if (!supportsPlayer) return;
     let active = true;
     let preferenceChanged = false;
 

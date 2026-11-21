@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAssessFood } from './assessment/assess-food.ts';
 import { loadConfig } from './config.ts';
 import { buildServer } from './http/server.ts';
+import { serveWebApp } from './http/web-app.ts';
 import { createClaudeFoodJudge } from './infrastructure/claude-food-judge.ts';
 import { createOpenFoodFactsLookup } from './infrastructure/open-food-facts-lookup.ts';
 import { createAccounts } from './cloud/accounts.ts';
@@ -31,7 +32,10 @@ if (database) {
 const cloud = database && cloudinaryUrl ? {
   accounts: createAccounts(database), history: createCloudHistory(database, createCloudinaryMedia(cloudinaryUrl)),
 } : undefined;
+const webRoot = process.env.WEB_ROOT?.trim();
+if (webRoot && !cloud) throw new Error('The web app requires DATABASE_URL and CLOUDINARY_URL.');
 const server = buildServer({ assessFood, trustedProxies: config.trustedProxies, logLevel: config.logLevel, ...(cloud ? { cloud } : {}) });
+if (webRoot) serveWebApp(server, webRoot);
 if (cloud && database) {
   let cleanup: Promise<void> | undefined;
   const runCleanup = () => {

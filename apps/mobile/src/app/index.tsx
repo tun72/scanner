@@ -1,6 +1,6 @@
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { activeSession, signOut } from '../account/session.ts';
 import type { ScanSummary } from '../history/scan-history.ts';
 import { VERDICT_LOOKS } from '../history/verdict-look.ts';
@@ -48,7 +48,7 @@ export default function HomeScreen() {
           <Pressable style={[shared.button, styles.action]} onPress={() => session ? scan('photo') : router.push('/scan')} accessibilityRole="button">
             <Text style={shared.buttonText}>{session ? 'Photo scan' : 'Scan a food'}</Text>
           </Pressable>
-          {session && <Pressable style={[shared.button, shared.buttonSecondary, styles.action]} onPress={() => scan('barcode')} accessibilityRole="button">
+          {session && Platform.OS !== 'web' && <Pressable style={[shared.button, shared.buttonSecondary, styles.action]} onPress={() => scan('barcode')} accessibilityRole="button">
             <Text style={shared.buttonSecondaryText}>Barcode</Text>
           </Pressable>}
         </View>

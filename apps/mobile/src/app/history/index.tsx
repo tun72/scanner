@@ -1,12 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { historyIsOffline, scanPhotoSource } from '../../account/history.ts';
+import { ActivityIndicator, Alert, AppState, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { historyIsOffline } from '../../account/history.ts';
+import { useScanPhoto } from '../../account/use-scan-photo';
 import { activeSession } from '../../account/session.ts';
 import type { ScanSummary } from '../../history/scan-history.ts';
 import { VERDICT_LOOKS } from '../../history/verdict-look.ts';
 import { hasLocalScans, importLocalScans, profileStore, scanHistory } from '../../services.ts';
 import { colors, shared } from '../../theme.ts';
+import { confirmDelete } from '../../ui/confirm-delete.ts';
 import { GlassBackground } from '../../ui/glass.tsx';
 
 export default function HistoryScreen() {
@@ -81,12 +83,9 @@ export default function HistoryScreen() {
     }
   };
 
-  const confirmDeleteAll = () => {
-    Alert.alert('Delete all scans?', session ? 'This deletes all scans and photos from your account.' : 'This removes every saved scan from this phone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete all', style: 'destructive', onPress: deleteAll },
-    ]);
-  };
+  const confirmDeleteAll = () => confirmDelete('Delete all scans?',
+    session ? 'This deletes all scans and photos from your account.' : 'This removes every saved scan from this phone.',
+    'Delete all', () => void deleteAll());
 
   if (scans === 'error') {
     return (
@@ -112,13 +111,13 @@ export default function HistoryScreen() {
         ListEmptyComponent={(
           <View style={[shared.card, styles.empty]}>
             <Text style={shared.heading} accessibilityRole="header">No saved scans yet.</Text>
-            <Text style={shared.body}>Your photo and barcode verdicts will appear here after you scan.</Text>
+            <Text style={shared.body}>{Platform.OS === 'web' ? 'Your photo verdicts will appear here after you scan.' : 'Your photo and barcode verdicts will appear here after you scan.'}</Text>
           </View>
         )}
         ListHeaderComponent={scans.length > 0 || canImport || offline ? (
           <View style={styles.actions}>
             <Text style={shared.title} accessibilityRole="header">Past scans</Text>
-            {offline && <Text style={shared.muted}>Offline · Saved on this phone</Text>}
+            {offline && <Text style={shared.muted}>Offline · Showing recent history</Text>}
             {canImport && <Pressable style={[shared.button, shared.buttonSecondary]} disabled={importing} accessibilityRole="button" onPress={confirmImport}>
               <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{importing ? 'Importing…' : 'Import my local scans'}</Text>
             </Pressable>}
@@ -144,8 +143,7 @@ export default function HistoryScreen() {
               disabled={deleting}
               onPress={() => router.push({ pathname: '/history/[id]', params: { id: item.id } })}
             >
-              {item.thumbnail !== null ? <Image style={styles.thumbnail} source={{ uri: `data:image/jpeg;base64,${item.thumbnail}` }} />
-                : item.photoState === 'ready' ? <Image style={styles.thumbnail} source={scanPhotoSource(item.id)} /> : null}
+              <ScanThumbnail scan={item} />
               <View style={styles.summary}>
                 <Text style={styles.foodName}>{item.foodName}</Text>
                 <Text style={[styles.level, { color: look.colour }]}>{look.badge}</Text>
@@ -158,6 +156,12 @@ export default function HistoryScreen() {
       />
     </GlassBackground>
   );
+}
+
+function ScanThumbnail({ scan }: { scan: ScanSummary }) {
+  const savedPhoto = useScanPhoto(scan.thumbnail === null && scan.photoState === 'ready' ? scan.id : undefined);
+  const source = scan.thumbnail === null ? savedPhoto : { uri: `data:image/jpeg;base64,${scan.thumbnail}` };
+  return source ? <Image style={styles.thumbnail} source={source} /> : null;
 }
 
 const styles = StyleSheet.create({
