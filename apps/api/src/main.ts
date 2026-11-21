@@ -14,7 +14,10 @@ import { createCloudinaryMedia } from './cloud/media.ts';
 const config = loadConfig(process.env);
 
 const claude = new Anthropic({ apiKey: config.anthropicApiKey, timeout: config.claudeTimeoutMs, maxRetries: config.claudeMaxRetries });
-const judge = createClaudeFoodJudge({ messages: claude.beta.messages, model: config.model });
+const judge = createClaudeFoodJudge({
+  messages: claude.beta.messages, model: config.model,
+  onApiError: details => server.log.warn(details, 'Anthropic request failed'),
+});
 const products = createOpenFoodFactsLookup({ baseUrl: config.openFoodFactsUrl, userAgent: config.openFoodFactsUserAgent, timeoutMs: config.productLookupTimeoutMs });
 const assessFood = createAssessFood({ judge, products, now: () => new Date() });
 const databaseUrl = process.env.DATABASE_URL?.trim();

@@ -24,6 +24,7 @@ export interface ClaudeFoodJudgeOptions {
   messages: ClaudeMessages;
   model: string;
   serverFallback?: boolean;
+  onApiError?: (details: { status: number | undefined; billing: boolean; fallbackConfig: boolean; schemaConfig: boolean }) => void;
 }
 
 /** Thinking cannot be switched off on this model and counts toward the limit, so leave room beyond the small JSON reply. */
@@ -56,7 +57,7 @@ function failureOf(error: unknown): JudgeFailure {
  * a failure result, so the caller can never mistake it for a verdict. Anything that is not
  * provider trouble is a bug and is rethrown.
  */
-export function createClaudeFoodJudge({ messages, model, serverFallback = model !== 'claude-haiku-5-5' }: ClaudeFoodJudgeOptions): FoodJudge {
+export function createClaudeFoodJudge({ messages, model, serverFallback = model !== 'claude-haiku-5-5', onApiError }: ClaudeFoodJudgeOptions): FoodJudge {
   /** The same question either way; only how the food is shown differs. */
   async function judge(food: FoodContent, profile: ScanProfile, locale: string): Promise<JudgeResult> {
     const isPhoto = food.type === 'image';
@@ -76,6 +77,14 @@ export function createClaudeFoodJudge({ messages, model, serverFallback = model 
         output_config: { effort: 'low', format: betaZodOutputFormat(draftSchema) },
       });
     } catch (error) {
+      if (error instanceof Anthropic.APIError) {
+        onApiError?.({
+          status: error.status,
+          billing: /credit balance|insufficient credits|billing|payment required/i.test(error.message),
+          fallbackConfig: /fallback|server-side-fallback/i.test(error.message),
+          schemaConfig: /schema|output_config|structured output/i.test(error.message),
+        });
+      }
       return { ok: false, failure: failureOf(error) };
     }
 

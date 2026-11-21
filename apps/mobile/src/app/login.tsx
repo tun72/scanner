@@ -9,6 +9,7 @@ import { GlassBackground } from '../ui/glass.tsx';
 import { MascotScene } from '../ui/mascot-scene.tsx';
 
 type LoginField = 'rollNumber' | 'password';
+const isWeb = Platform.OS === 'web';
 
 export default function LoginScreen() {
   const safeArea = useSafeAreaInsets();
@@ -21,11 +22,13 @@ export default function LoginScreen() {
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const desktop = width >= 820 && height >= 560 && !editing;
-  const compact = editing || height - safeArea.top - safeArea.bottom < 600;
+  const desktop = width >= 820 && (isWeb || (height >= 560 && !editing));
+  // The browser viewport can get shorter while typing. Keep the form's layout tied to its width.
+  const compact = isWeb ? width <= 340 : editing || height - safeArea.top - safeArea.bottom < 600;
   const disabled = submitting || !rollNumber.trim() || !password;
 
   useEffect(() => {
+    if (isWeb) return;
     const show = Keyboard.addListener('keyboardDidShow', () => setEditing(true));
     const hide = Keyboard.addListener('keyboardDidHide', () => {
       // iOS can briefly hide the keyboard while switching between the sign-in fields.
@@ -64,8 +67,9 @@ export default function LoginScreen() {
   const content = (
     <View testID="sign-in-layout" style={[
       styles.content,
+      isWeb && styles.webContent,
       desktop && styles.desktopContent,
-      editing && styles.editing,
+      (editing || (isWeb && !desktop)) && styles.alignTop,
       { paddingTop: safeArea.top + (compact ? 8 : 24), paddingBottom: Math.max(safeArea.bottom, 16) },
     ]}>
       <View style={[styles.panel, desktop && styles.desktopPanel]}>
@@ -88,7 +92,7 @@ export default function LoginScreen() {
               <TextInput value={rollNumber} onChangeText={setRollNumber}
                 onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
                 autoCapitalize="none" autoCorrect={false}
-                  autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={[styles.input, Platform.OS === 'web' && styles.webInput]}
+                autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={[styles.input, isWeb && styles.webInput]}
                 returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
             </View>
           </View>
@@ -98,7 +102,7 @@ export default function LoginScreen() {
               <TextInput ref={passwordInput} value={password} onChangeText={setPassword}
                 onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
                 autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
-                  accessibilityLabel="Password" maxLength={128} style={[styles.input, Platform.OS === 'web' && styles.webInput]}
+                accessibilityLabel="Password" maxLength={128} style={[styles.input, isWeb && styles.webInput]}
                 returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
               <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'Hide password' : 'Show password'}
                 onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
@@ -116,7 +120,7 @@ export default function LoginScreen() {
             ]}>
             <Text style={shared.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
           </Pressable>
-          {Platform.OS === 'web' && <InstallApp />}
+          {isWeb && <InstallApp />}
         </View>
       </View>
       {!compact && <View style={styles.footer}>
@@ -133,7 +137,7 @@ export default function LoginScreen() {
 
   return (
     <GlassBackground>
-      {Platform.OS === 'web' ? (
+      {isWeb ? (
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {content}
         </ScrollView>
@@ -181,8 +185,9 @@ function InstallApp() {
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1 },
   content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 18 },
+  webContent: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto' },
   desktopContent: { maxWidth: 980, paddingHorizontal: 24 },
-  editing: { justifyContent: 'flex-start' },
+  alignTop: { justifyContent: 'flex-start' },
   panel: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 28, overflow: 'hidden' },
   desktopPanel: { flexDirection: 'row' },
   brand: {
