@@ -88,7 +88,7 @@ export default function LoginScreen() {
               <TextInput value={rollNumber} onChangeText={setRollNumber}
                 onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
                 autoCapitalize="none" autoCorrect={false}
-                autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={styles.input}
+                  autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={[styles.input, Platform.OS === 'web' && styles.webInput]}
                 returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
             </View>
           </View>
@@ -98,7 +98,7 @@ export default function LoginScreen() {
               <TextInput ref={passwordInput} value={password} onChangeText={setPassword}
                 onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
                 autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
-                accessibilityLabel="Password" maxLength={128} style={styles.input}
+                  accessibilityLabel="Password" maxLength={128} style={[styles.input, Platform.OS === 'web' && styles.webInput]}
                 returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
               <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'Hide password' : 'Show password'}
                 onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
@@ -207,8 +207,12 @@ const styles = StyleSheet.create({
   formRow: { gap: 6 },
   label: { color: colors.text, fontSize: 14, fontWeight: '700' },
   field: { minHeight: 50, flexDirection: 'row', alignItems: 'stretch', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, borderRadius: 12 },
-  focusedField: { borderColor: colors.primary, backgroundColor: colors.surface },
+  focusedField: {
+    borderColor: colors.primary, backgroundColor: colors.surface,
+    ...Platform.select({ web: { outlineColor: '#D8E5D7', outlineStyle: 'solid' as const, outlineWidth: 3, outlineOffset: 1 } }),
+  },
   input: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 14, paddingVertical: 8, color: colors.text, fontSize: 16 },
+  webInput: { outlineStyle: 'solid', outlineWidth: 0 },
   reveal: { minHeight: 44, minWidth: 58, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   revealPressed: { backgroundColor: colors.tint },
   revealText: { color: colors.primary, fontSize: 14, fontWeight: '700' },

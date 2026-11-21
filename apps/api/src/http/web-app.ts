@@ -8,6 +8,7 @@ const contentTypes: Record<string, string> = {
   '.ico': 'image/x-icon',
   '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
+  '.wasm': 'application/wasm',
   '.webmanifest': 'application/manifest+json',
   '.webp': 'image/webp',
 };
