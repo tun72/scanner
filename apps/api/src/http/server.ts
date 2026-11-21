@@ -1,8 +1,10 @@
 import rateLimit from '@fastify/rate-limit';
+import { CloudPhotoSchema, ScanRequestSchema, type CloudScan } from '@food-scanner/contracts';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AssessFood, AssessmentOutcome } from '../assessment/assess-food.ts';
 import { aiUnavailable, invalidRequest, rateLimited } from '../assessment/errors.ts';
+import { registerCloudRoutes, requireOwner, type CloudServices } from '../cloud/routes.ts';
 
 export interface ScanLimits {
   perInstallPerHour: number;
@@ -24,6 +26,7 @@ export interface ServerOptions {
   logLevel?: string;
   /** Where log lines go; standard output when left out. */
   logStream?: NodeJS.WritableStream;
+  cloud?: CloudServices;
 }
 
 /** Above the 1.5 MB photo limit once base64-encoded, so the photo rule, not this limit, decides. */
@@ -31,7 +34,7 @@ const BODY_LIMIT_BYTES = 2_621_440;
 const ONE_HOUR_MS = 3_600_000;
 
 /** Never logged, even if a future change logs a body by mistake. */
-const REDACTED_LOG_PATHS = ['req.body', 'body', 'photo', 'profile', 'notes', '*.photo', '*.profile', '*.notes'];
+const REDACTED_LOG_PATHS = ['req.body', 'req.headers.authorization', 'body', 'password', 'token', 'photo', 'profile', 'notes', '*.photo', '*.profile', '*.notes'];
 
 /** Logs the matched route, not the raw URL, so nothing a caller puts in a query string reaches the logs. */
 const describeRequest = (request: FastifyRequest): { method: string; route: string } => ({
@@ -70,7 +73,7 @@ const refuseWhenOver = (check: LimitCheck) => async (request: FastifyRequest, re
 };
 
 /** Builds the HTTP server around the use case. Starting it is left to the caller. */
-export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trustedProxies = [], logLevel = 'info', logStream }: ServerOptions): FastifyInstance {
+export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trustedProxies = [], logLevel = 'info', logStream, cloud }: ServerOptions): FastifyInstance {
   const server = Fastify({
     bodyLimit: BODY_LIMIT_BYTES,
     trustProxy: trustedProxies.length > 0 ? [...trustedProxies] : false,
@@ -87,7 +90,7 @@ export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trus
   // logged, and the user gets the fixed unavailable message with no internal detail.
   server.setErrorHandler<FastifyError>((error, request, reply) => {
     if (isClientError(error)) return reply.code(400).send(invalidRequest());
-    request.log.error({ err: error }, 'unexpected error');
+    request.log.error({ errorType: error.name }, 'unexpected error');
     return reply.code(503).send(aiUnavailable());
   });
 
@@ -95,6 +98,7 @@ export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trus
   server.register(rateLimit, { global: false });
 
   server.get('/health', async () => ({ status: 'ok' }));
+  if (cloud) registerCloudRoutes(server, cloud);
 
   server.register(async (scans) => {
     // Both limits share the plugin's store, so each key says which limit it belongs to.
@@ -113,6 +117,28 @@ export function buildServer({ assessFood, scanLimits = DEFAULT_SCAN_LIMITS, trus
       { onRequest: refuseWhenOver(underIpLimit), preHandler: refuseWhenOver(underInstallLimit) },
       async (request, reply) => {
         const startedAt = performance.now();
+        if (cloud) {
+          reply.header('cache-control', 'private, no-store');
+          const owner = await requireOwner(cloud, request, reply);
+          if (!owner) return;
+          const id = z.uuid().safeParse(request.headers['idempotency-key']).data;
+          const body = ScanRequestSchema.safeParse(request.body).data;
+          if (!id || !body || (body.kind === 'photo' && !CloudPhotoSchema.safeParse(body.photo).success)) {
+            return reply.code(400).send(invalidRequest());
+          }
+          const photo = body.kind === 'photo' ? body.photo : null;
+          const result = await cloud.history.assess(owner, id, photo, async () => {
+            const outcome = await assessFood(body);
+            request.log.info({ scan: describeScan(outcome, Math.round(performance.now() - startedAt)) }, 'scan assessed');
+            return outcome;
+          }, (outcome): CloudScan | null => outcome.kind === 'verdict' ? {
+            id, scannedAt: outcome.response.assessedAt, verdict: outcome.response, photoState: photo ? 'pending' : 'none',
+          } : null);
+          if (result.kind === 'missing') return reply.code(400).send(invalidRequest());
+          if (result.kind === 'saved') return result.scan;
+          const outcome = result.outcome;
+          return reply.code(STATUS_BY_OUTCOME[outcome.kind]).send(outcome.kind === 'verdict' ? outcome.response : outcome.error);
+        }
         const outcome = await assessFood(request.body);
         request.log.info({ scan: describeScan(outcome, Math.round(performance.now() - startedAt)) }, 'scan assessed');
         return reply.code(STATUS_BY_OUTCOME[outcome.kind]).send(outcome.kind === 'verdict' ? outcome.response : outcome.error);

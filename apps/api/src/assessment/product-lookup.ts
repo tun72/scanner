@@ -6,6 +6,7 @@ export interface ProductFacts {
   ingredientsText?: string;
   allergens: string[];
   nutrientsPer100g?: Nutrients;
+  details?: ProductDetails;
 }
 
 /** Grams per 100 g of product. */
@@ -30,3 +31,4 @@ export interface ProductLookup {
   /** Never throws for provider trouble: an unreachable database is a normal result. */
   findProduct(barcode: string): Promise<ProductLookupResult>;
 }
+import type { ProductDetails } from '@food-scanner/contracts';

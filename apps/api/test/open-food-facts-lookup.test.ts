@@ -33,7 +33,7 @@ describe('Open Food Facts lookup', () => {
     await lookupWith(double.fetch).findProduct('3017620422003');
 
     expect(double.calls).toHaveLength(1);
-    expect(double.calls[0]!.url).toBe('https://products.example/api/v2/product/3017620422003.json?fields=code,product_name,brands,ingredients_text,allergens_tags,nutriments');
+    expect(double.calls[0]!.url).toBe('https://products.example/api/v2/product/3017620422003.json?fields=code,product_name,brands,ingredients_text,ingredients,allergens_tags,nutriments,serving_size,serving_quantity,product_quantity_unit');
     expect(new Headers(double.calls[0]!.init?.headers).get('user-agent')).toBe('FoodScannerTests/0.1');
     expect(double.calls[0]!.init?.signal).toBeInstanceOf(AbortSignal);
   });
@@ -47,9 +47,29 @@ describe('Open Food Facts lookup', () => {
         brand: 'Ferrero, Nutella',
         ingredientsText: recordedReply.product.ingredients_text,
         allergens: ['milk', 'nuts', 'soybeans'],
+        details: { allergens: ['milk', 'nuts', 'soybeans'] },
         nutrientsPer100g: { fat: 30.9, saturatedFat: 10.6, sugars: 56.3, fibre: 0, salt: 0.107 },
       },
     });
+  });
+
+  it('prefers a declared serving, preserving a reported zero and omitting macros from another quantity', async () => {
+    const result = await find(json({ status: 1, product: {
+      product_name: 'Water', serving_size: '1 bottle (330 mL)', serving_quantity: 330, product_quantity_unit: 'ml',
+      nutriments: { 'energy-kcal_serving': 0, proteins_100g: 3, fat_serving: 0 },
+      ingredients: [{ text: 'Water' }],
+    } }));
+    expect(result.status === 'found' && result.product.details).toEqual({
+      nutrition: { quantity: 'per serving · 1 bottle (330 mL)', calories: 0, fat: 0 }, ingredients: ['Water'],
+    });
+  });
+
+  it('uses the reporting unit when known and omits ambiguous data', async () => {
+    const product = { product_name: 'Oat drink', nutriments: { 'energy-kcal_100g': 46, proteins_100g: 1.2 } };
+    const known = await find(json({ status: 1, product: { ...product, product_quantity_unit: 'ml' } }));
+    expect(known.status === 'found' && known.product.details?.nutrition).toEqual({ quantity: 'per 100 mL', calories: 46, protein: 1.2 });
+    const ambiguous = await find(json({ status: 1, product }));
+    expect(ambiguous.status === 'found' && ambiguous.product.details).toBeUndefined();
   });
 
   it.each([

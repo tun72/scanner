@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNoticeAcceptance } from '../profile/notice-acceptance.tsx';
 import { PROBLEM_MESSAGES, changeNotes, showProblem, startForm, toggleCondition, type ProfileFormState } from '../profile/profile-form.ts';
-import { profileStore, saveProfile } from '../services.ts';
+import { activeSession } from '../account/session.ts';
+import { legacyProfileStore, profileStore, saveProfile } from '../services.ts';
 import { colors, shared } from '../theme.ts';
+import { GlassBackground, GlassCard } from '../ui/glass.tsx';
 
 /** Steps 2 to 4 of saving a profile: pick conditions, add notes, save. Also used to edit a saved profile. */
 export default function ProfileScreen() {
@@ -13,11 +15,18 @@ export default function ProfileScreen() {
   const notice = useNoticeAcceptance();
   const [form, setForm] = useState<ProfileFormState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [canReuse, setCanReuse] = useState(false);
 
   useEffect(() => {
     let active = true;
     void profileStore.load().then((saved) => {
       if (active) setForm(startForm(saved, notice.acceptedAt));
+      if (!saved && activeSession()) void legacyProfileStore.load().then(previous => {
+        if (active) setCanReuse(previous !== null);
+      }).catch(() => undefined);
+    }).catch(() => {
+      if (active) setForm(startForm(null, notice.acceptedAt));
     });
     return () => {
       active = false;
@@ -30,74 +39,95 @@ export default function ProfileScreen() {
 
   const save = async () => {
     setSaving(true);
-    const result = await saveProfile(form);
-    setSaving(false);
-    if (result.ok) router.replace('/');
-    else setForm(showProblem(form, result.problem));
+    setSaveFailed(false);
+    try {
+      const result = await saveProfile(form);
+      if (result.ok) router.replace('/');
+      else setForm(showProblem(form, result.problem));
+    } catch {
+      setSaveFailed(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={shared.screen} keyboardShouldPersistTaps="handled">
-      <Text style={shared.body}>Pick what applies to you. Food Scanner judges every food against these.</Text>
+    <GlassBackground>
+      <ScrollView contentContainerStyle={shared.screen} keyboardShouldPersistTaps="handled">
+        <GlassCard>
+          <Text style={shared.title} accessibilityRole="header">Make it yours</Text>
+          <Text style={shared.body}>Select the conditions Food Scanner should consider when you scan.</Text>
+        </GlassCard>
+        {canReuse && <Pressable style={[shared.button, shared.buttonSecondary]} accessibilityRole="button" onPress={() => {
+          void legacyProfileStore.load().then(previous => {
+            if (previous) setForm({ ...startForm(previous, notice.acceptedAt), noticeAcceptedAt: form.noticeAcceptedAt });
+            setCanReuse(false);
+          }).catch(() => setSaveFailed(true));
+        }}><Text style={[shared.buttonText, shared.buttonSecondaryText]}>Use my previous profile</Text></Pressable>}
 
-      <View style={styles.list}>
-        {CONDITION_IDS.map((id) => {
-          const checked = form.conditions.includes(id);
-          return (
-            <Pressable
-              key={id}
-              style={[styles.row, checked && styles.rowChecked]}
-              onPress={() => setForm(toggleCondition(form, id))}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked }}
-            >
-              <Text style={styles.box}>{checked ? '☑' : '☐'}</Text>
-              <Text style={styles.rowText}>{CONDITION_LABELS[id]}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+        <View style={styles.list}>
+          {CONDITION_IDS.map((id) => {
+            const checked = form.conditions.includes(id);
+            return (
+              <Pressable
+                key={id}
+                style={[styles.row, checked && styles.rowChecked]}
+                onPress={() => setForm(toggleCondition(form, id))}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+              >
+                <View style={[styles.box, checked && styles.boxChecked]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                  {checked && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.rowText}>{CONDITION_LABELS[id]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      <Text style={shared.body}>Anything else that bothers your stomach? (optional)</Text>
-      <TextInput
-        style={styles.notes}
-        value={form.notes}
-        onChangeText={(notes) => setForm(changeNotes(form, notes))}
-        placeholder="For example: spicy food hurts, milk upsets me"
-        placeholderTextColor={colors.muted}
-        maxLength={MAX_NOTES_LENGTH}
-        multiline
-        accessibilityLabel="Notes about what bothers your stomach"
-      />
-      <Text style={shared.muted}>
-        {form.notes.length} / {MAX_NOTES_LENGTH}
-      </Text>
-
-      {form.problem !== null && (
-        <Text style={styles.problem} accessibilityRole="alert">
-          {PROBLEM_MESSAGES[form.problem]}
+        <Text style={shared.heading}>Anything else? <Text style={shared.muted}>(optional)</Text></Text>
+        <TextInput
+          style={styles.notes}
+          value={form.notes}
+          onChangeText={(notes) => setForm(changeNotes(form, notes))}
+          placeholder="For example: spicy food hurts, milk upsets me"
+          placeholderTextColor={colors.muted}
+          maxLength={MAX_NOTES_LENGTH}
+          multiline
+          accessibilityLabel="Notes about what bothers your stomach"
+        />
+        <Text style={shared.muted}>
+          {form.notes.length} / {MAX_NOTES_LENGTH}
         </Text>
-      )}
 
-      <Pressable style={[shared.button, saving && shared.buttonDisabled]} onPress={save} disabled={saving} accessibilityRole="button">
-        <Text style={shared.buttonText}>{saving ? 'Saving…' : 'Save profile'}</Text>
-      </Pressable>
+        {form.problem !== null && (
+          <Text style={styles.problem} accessibilityRole="alert">
+            {PROBLEM_MESSAGES[form.problem]}
+          </Text>
+        )}
+        {saveFailed && <Text style={styles.problem} accessibilityRole="alert">Couldn’t save your profile. Try again.</Text>}
 
-      <Text style={shared.muted}>
-        Your profile is stored only on this phone. When you scan a food, your conditions and notes are sent with the scan so the food can be judged
-        for you. They are not kept on our server.
-      </Text>
-    </ScrollView>
+        <Pressable style={[shared.button, saving && shared.buttonDisabled]} onPress={save} disabled={saving} accessibilityRole="button">
+          <Text style={shared.buttonText}>{saving ? 'Saving…' : 'Save profile'}</Text>
+        </Pressable>
+
+        <Text style={shared.muted}>
+          Your profile settings stay on this phone. Scans use your conditions and notes to check the food.
+        </Text>
+      </ScrollView>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
   loading: { flex: 1 },
   list: { gap: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
-  rowChecked: { borderColor: colors.primary },
-  box: { fontSize: 22, color: colors.primary },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 20, backgroundColor: colors.surface },
+  rowChecked: { borderColor: colors.primary, backgroundColor: colors.tintLight },
+  box: { width: 25, height: 25, borderWidth: 1, borderColor: colors.primary, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  boxChecked: { backgroundColor: colors.primary },
+  checkmark: { color: colors.primaryText, fontSize: 14, fontWeight: '800', includeFontPadding: false },
   rowText: { flex: 1, fontSize: 16, color: colors.text },
-  notes: { minHeight: 96, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, fontSize: 16, color: colors.text, textAlignVertical: 'top' },
+  notes: { minHeight: 96, padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 20, fontSize: 16, color: colors.text, backgroundColor: colors.surface, textAlignVertical: 'top' },
   problem: { fontSize: 15, color: colors.problem },
 });

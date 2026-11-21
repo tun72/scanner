@@ -1,4 +1,4 @@
-import { VerdictResponseSchema, type AssessmentError, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
+import { PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ProductDetails, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
 import { checkScanRequest } from './check-request.ts';
 import { aiUnavailable, productLookupUnavailable, productNotFound } from './errors.ts';
 import type { FoodJudge, JudgeFailure, JudgeResult, TokenUsage } from './food-judge.ts';
@@ -27,7 +27,7 @@ export interface AssessFoodDeps {
 export type AssessFood = (body: unknown) => Promise<AssessmentOutcome>;
 
 /** A food ready to be judged, or the reason it will not be. */
-type Judged = { judged: JudgeResult; productName?: string } | Extract<AssessmentOutcome, { kind: 'not-found' | 'unavailable' }>;
+type Judged = { judged: JudgeResult; productName?: string; productDetails?: ProductDetails } | Extract<AssessmentOutcome, { kind: 'not-found' | 'unavailable' }>;
 
 const unique = (items: readonly string[]): string[] => [...new Set(items)];
 
@@ -64,7 +64,11 @@ export function createAssessFood({ judge, products, now }: AssessFoodDeps): Asse
     if (lookup.status === 'not-found') return { kind: 'not-found', scanKind: 'barcode', error: productNotFound() };
     if (lookup.status === 'unavailable') return { kind: 'unavailable', scanKind: 'barcode', error: productLookupUnavailable(), failure: lookup.failure };
     const judged = await judge.judgeProduct({ product: lookup.product, profile, locale });
-    return { judged, ...(lookup.product.name === undefined ? {} : { productName: lookup.product.name }) };
+    return {
+      judged,
+      ...(lookup.product.name === undefined ? {} : { productName: lookup.product.name }),
+      ...(lookup.product.details === undefined ? {} : { productDetails: lookup.product.details }),
+    };
   }
 
   return async (body) => {
@@ -74,7 +78,7 @@ export function createAssessFood({ judge, products, now }: AssessFoodDeps): Asse
 
     const result = await judgeScan(check.request);
     if ('kind' in result) return result;
-    const { judged, productName } = result;
+    const { judged, productName, productDetails } = result;
     if (!judged.ok) {
       return { kind: 'unavailable', scanKind, error: aiUnavailable(), failure: judged.failure, ...(judged.usage === undefined ? {} : { usage: judged.usage }) };
     }
@@ -82,6 +86,12 @@ export function createAssessFood({ judge, products, now }: AssessFoodDeps): Asse
     const verdict = applyVerdictRules(judged.draft);
     // A product is named as its label names it, not as the AI rephrases it.
     const candidate = toResponse(verdict, scanKind === 'photo' ? 'photo' : 'product', productName ?? verdict.foodName, now());
+    if (scanKind === 'photo' && judged.draft.isFood) {
+      const photo = verdict.level === 'unsure' ? undefined : PhotoDetailsSchema.safeParse(judged.draft.photoDetails).data;
+      candidate.details = { kind: 'photo', confidence: judged.draft.confidence, ...(photo ? { photo } : {}) };
+    } else if (scanKind === 'barcode' && productDetails) {
+      candidate.details = { kind: 'product', product: productDetails };
+    }
 
     // The draft's shape is already checked, but its texts are not: an empty explanation or
     // trigger would give the user a reason they cannot read, so it counts as a bad reply.

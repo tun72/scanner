@@ -8,8 +8,6 @@
   },
   "include": [
     "src",
-    "test",
-    "expo-env.d.ts",
-    ".expo/types/**/*.ts"
+    "test"
   ]
 }

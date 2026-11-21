@@ -37,6 +37,9 @@ let ids = 0;
 
 export const services: typeof RealServices = {
   profileStore,
+  legacyProfileStore: profileStore,
+  hasLocalScans: async () => false,
+  importLocalScans: async () => undefined,
   saveProfile: createSaveProfile({ store: profileStore, now: () => NOW }),
   loadInstallId: async () => INSTALL_ID,
   scanFood: createScanFood({ editor: recordingEditor(), client: fake.client }),

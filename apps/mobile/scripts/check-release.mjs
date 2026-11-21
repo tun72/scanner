@@ -28,7 +28,11 @@ async function probeDeployment(api, policy) {
   const invalid = await request(new URL('/v1/assessments', api), {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
   });
-  if (invalid.status !== 400 || (await invalid.json()).code !== 'invalid-request') throw new Error('The deployed assessment route did not reject an invalid request.');
+  if (invalid.status !== 401) throw new Error('The deployed assessment route must require a mobile account.');
+  const history = await request(new URL('/v1/history', api));
+  if (history.status !== 401 || !history.headers.get('cache-control')?.includes('no-store')) {
+    throw new Error('The deployed history route must require a mobile account and disable caching.');
+  }
   const privacy = await request(policy);
   if (!privacy.ok || !privacy.headers.get('content-type')?.includes('text/html')) throw new Error('The published policy must return an HTTPS HTML page.');
   await privacy.body?.cancel();

@@ -21,7 +21,19 @@ export interface VerdictDraft {
   concerns: Concern[];
   tip: string | null;
   retakeHint: string | null;
+  photoDetails?: PhotoDraft | null | undefined;
 }
+
+const draftRange = z.object({ min: z.number(), max: z.number() });
+const photoDraft = z.object({
+  portionGrams: z.number().nullable(),
+  calories: draftRange.nullable(),
+  protein: draftRange.nullable(),
+  fat: draftRange.nullable(),
+  carbs: draftRange.nullable(),
+  ingredients: z.array(z.object({ name: z.string(), evidence: z.enum(['seen', 'possible']) })),
+});
+type PhotoDraft = z.infer<typeof photoDraft>;
 
 /** The judgement after the rules. The level is always derived here, never taken from the AI. */
 export interface Verdict {
@@ -52,10 +64,10 @@ export function labelForTarget(target: ConcernTarget): string {
  * a reason for a condition the user never picked cannot be produced or accepted.
  * The schema stays free of length limits because structured output supports only plain shapes.
  */
-export function verdictDraftSchemaFor(profile: ScanProfile): z.ZodType<VerdictDraft> {
+export function verdictDraftSchemaFor(profile: ScanProfile, includePhotoDetails = false): z.ZodType<VerdictDraft> {
   const [first, ...rest] = concernTargetsFor(profile);
   if (first === undefined) throw new Error('A profile with no condition and no note cannot be judged.');
-  return z.object({
+  const core = z.object({
     isFood: z.boolean(),
     foodName: z.string(),
     confidence: z.enum(['high', 'medium', 'low']),
@@ -70,6 +82,7 @@ export function verdictDraftSchemaFor(profile: ScanProfile): z.ZodType<VerdictDr
     tip: z.string().nullable(),
     retakeHint: z.string().nullable(),
   });
+  return includePhotoDetails ? core.extend({ photoDetails: photoDraft.nullable().optional() }) : core;
 }
 
 function worstLevel(concerns: readonly Concern[]): VerdictLevel {

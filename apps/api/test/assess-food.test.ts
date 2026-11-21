@@ -64,6 +64,7 @@ describe('judging a photo', () => {
         level: 'avoid',
         foodName: 'Creamy chilli pasta',
         source: 'photo',
+        details: { kind: 'photo', confidence: 'high' },
         reasons: [
           { condition: 'Acid reflux (GERD)', severity: 'avoid', explanation: 'Chilli often brings on reflux.' },
           { condition: 'Your notes', severity: 'caution', explanation: 'You said spicy food hurts.' },
@@ -75,6 +76,16 @@ describe('judging a photo', () => {
         assessedAt: '2026-11-16T10:00:00.000Z',
       },
     });
+  });
+
+  it('omits invalid estimates and leaves the low-confidence verdict unsure', async () => {
+    const photoDetails = { portionGrams: 250, calories: { min: 600, max: 450 }, protein: null, fat: null, carbs: null, ingredients: [] };
+    expect(await assessWith(judgeReturning({ photoDetails }))(photoScan())).toMatchObject({
+      kind: 'verdict', response: { level: 'safe', details: { kind: 'photo', photo: { portionGrams: 250, calories: undefined } } },
+    });
+    const unclear = await assessWith(judgeReturning({ photoDetails, confidence: 'low' }))(photoScan());
+    expect(unclear).toMatchObject({ kind: 'verdict', response: { level: 'unsure', details: { kind: 'photo', confidence: 'low' } } });
+    expect(unclear.kind === 'verdict' && unclear.response.details).not.toHaveProperty('photo');
   });
 
   it('reports the AI as unavailable when the judge fails, and returns no verdict', async () => {

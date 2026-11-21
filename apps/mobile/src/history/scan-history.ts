@@ -1,4 +1,4 @@
-import type { VerdictLevel, VerdictResponse } from '@food-scanner/contracts';
+import type { PhotoState, VerdictLevel, VerdictResponse } from '@food-scanner/contracts';
 
 /** A verdict kept on the phone. */
 export interface SavedScan {
@@ -8,6 +8,7 @@ export interface SavedScan {
   verdict: VerdictResponse;
   /** Base64 JPEG, at most 256 px; null for barcode scans. */
   thumbnail: string | null;
+  photoState?: PhotoState;
 }
 
 /** One row of the history list. */
@@ -17,6 +18,7 @@ export interface ScanSummary {
   level: VerdictLevel;
   foodName: string;
   thumbnail: string | null;
+  photoState?: PhotoState;
 }
 
 /** Where past scans are kept. Declared here so the rules do not depend on the database library. */

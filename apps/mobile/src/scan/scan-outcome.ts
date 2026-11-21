@@ -1,4 +1,4 @@
-import type { AssessmentError, VerdictResponse } from '@food-scanner/contracts';
+import type { AssessmentError, CloudScan, VerdictResponse } from '@food-scanner/contracts';
 
 /** Why a scan ended without a verdict. */
 export type ScanFailure =
@@ -11,4 +11,4 @@ export type ScanFailure =
   /** The scan could not be turned into a request the API accepts, so it was not sent. */
   | { reason: 'not-sendable' };
 
-export type ScanResult = { kind: 'verdict'; verdict: VerdictResponse } | { kind: 'failed'; failure: ScanFailure };
+export type ScanResult = { kind: 'verdict'; verdict: VerdictResponse; cloudScan?: CloudScan } | { kind: 'failed'; failure: ScanFailure };

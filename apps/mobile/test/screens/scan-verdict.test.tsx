@@ -49,6 +49,7 @@ describe('the scan screen', () => {
     await renderRouter(routes);
     await fireEvent.press(await screen.findByRole('button', { name: 'History' }));
     await fireEvent.press(await screen.findByText('Spicy noodle soup'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Scan info' }));
     expect(await screen.findByText(NOTICE)).toBeTruthy();
     expect(sent()).toHaveLength(1);
   });
@@ -58,8 +59,9 @@ describe('the scan screen', () => {
 
     await scanBarcode();
 
-    expect(await screen.findByText(NOTICE)).toBeTruthy();
     expect(screen.getByTestId('verdict-badge')).toBeTruthy();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Scan info' }));
+    expect(await screen.findByText(NOTICE)).toBeTruthy();
   });
 
   it('TC23 an error response is shown and nothing is saved to history (ai-unavailable)', async () => {

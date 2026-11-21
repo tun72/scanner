@@ -1,10 +1,14 @@
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { canRetryPhoto, retryCloudPhoto, scanPhotoSource } from '../../account/history.ts';
+import { activeSession } from '../../account/session.ts';
 import type { SavedScan } from '../../history/scan-history.ts';
 import { VerdictCard } from '../../history/verdict-card.tsx';
 import { scanHistory } from '../../services.ts';
 import { colors, shared } from '../../theme.ts';
+import { GlassBackground } from '../../ui/glass.tsx';
 
 export default function SavedVerdictScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,84 +18,116 @@ export default function SavedVerdictScreen() {
 function SavedVerdict({ id }: { id: string }) {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [scan, setScan] = useState<SavedScan | null | 'loading' | 'error'>('loading');
   const [deleteFailed, setDeleteFailed] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFailed, setUploadFailed] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
+    let request = 0;
     setScan('loading');
-    void scanHistory.get(id).then(
-      (saved) => { if (active) setScan(saved); },
-      () => { if (active) setScan('error'); },
-    );
-    return () => { active = false; };
-  }, [id, attempt]);
+    const refresh = () => {
+      const current = ++request;
+      void scanHistory.get(id).then(
+        saved => { if (active && request === current) setScan(saved); },
+        () => { if (active && request === current) setScan('error'); },
+      );
+    };
+    refresh();
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+    return () => { active = false; listener.remove(); };
+  }, [id, attempt]));
 
-  const backToHistory = () => router.dismissTo('/history');
-
+  const back = () => router.dismissTo('/history');
   const deleteScan = async () => {
     setDeleting(true);
     setDeleteFailed(false);
     try {
       await scanHistory.deleteById(id);
+      setScan(null);
+      if (navigation.isFocused()) back();
     } catch {
       setDeleteFailed(true);
+    } finally {
       setDeleting(false);
-      return;
     }
-    setScan(null);
-    setDeleting(false);
-    if (navigation.isFocused()) backToHistory();
   };
 
   const confirmDelete = () => {
-    Alert.alert('Delete this scan?', 'This removes the saved verdict from this phone.', [
+    Alert.alert('Delete this scan?', activeSession() ? 'This deletes the verdict and photo from your account.' : 'This removes the saved verdict from this phone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete scan', style: 'destructive', onPress: deleteScan },
     ]);
   };
 
-  if (scan === 'loading') {
-    return <ActivityIndicator style={shared.screen} accessibilityLabel="Loading saved verdict" />;
-  }
+  const upload = async () => {
+    setUploading(true);
+    setUploadFailed(false);
+    try {
+      const uploaded = await retryCloudPhoto(id);
+      setScan({ ...uploaded, thumbnail: null });
+      if (uploaded.photoState !== 'ready') setUploadFailed(true);
+    } catch {
+      setUploadFailed(true);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (scan === 'loading') return <ActivityIndicator color={colors.primary} style={{ flex: 1 }} accessibilityLabel="Loading saved verdict" />;
 
   return (
-    <ScrollView contentContainerStyle={shared.screen}>
-      {scan === 'error' ? (
-        <>
-          <Text style={shared.body} accessibilityRole="alert">Couldn't load this saved verdict.</Text>
-          <Pressable style={shared.button} accessibilityRole="button" onPress={() => setAttempt((current) => current + 1)}>
-            <Text style={shared.buttonText}>Try again</Text>
-          </Pressable>
-        </>
-      ) : scan ? (
-        <>
-          <VerdictCard verdict={scan.verdict} />
-          <Pressable
-            style={[shared.button, shared.buttonSecondary, styles.deleteButton, deleting && shared.buttonDisabled]}
-            accessibilityRole="button"
-            disabled={deleting}
-            onPress={confirmDelete}
-          >
-            <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'Deleting…' : 'Delete scan'}</Text>
-          </Pressable>
-          {deleteFailed && <Text style={shared.body} accessibilityRole="alert">Couldn't delete this scan. Try again.</Text>}
-        </>
-      ) : (
-        <>
-          <Text style={shared.body}>This saved verdict is unavailable.</Text>
-          <Pressable style={shared.button} accessibilityRole="button" onPress={backToHistory}>
-            <Text style={shared.buttonText}>Back to history</Text>
-          </Pressable>
-        </>
-      )}
-    </ScrollView>
+    <GlassBackground>
+      <ScrollView contentContainerStyle={[styles.page, { paddingTop: insets.top, paddingBottom: insets.bottom + 14 }]}>
+        {scan === 'error' ? (
+          <View style={styles.actions}>
+            <Text style={shared.body} accessibilityRole="alert">Couldn't load this saved verdict.</Text>
+            <Pressable style={shared.button} accessibilityRole="button" onPress={() => setAttempt(current => current + 1)}>
+              <Text style={shared.buttonText}>Try again</Text>
+            </Pressable>
+            <Pressable style={[shared.button, shared.buttonSecondary]} accessibilityRole="button" onPress={back}>
+              <Text style={[shared.buttonText, shared.buttonSecondaryText]}>Back to history</Text>
+            </Pressable>
+          </View>
+        ) : scan ? (
+          <>
+            <VerdictCard verdict={scan.verdict} onBack={back} photo={scan.thumbnail ? { uri: `data:image/jpeg;base64,${scan.thumbnail}` }
+              : scan.photoState === 'ready' ? scanPhotoSource(id) : undefined} />
+            <View style={styles.actions}>
+              {scan.photoState === 'pending' && <>
+                <Text style={shared.muted}>{uploadFailed ? 'Couldn’t upload the photo. Try again.' : 'Photo upload pending.'}</Text>
+                {canRetryPhoto(id) && <Pressable style={[shared.button, shared.buttonSecondary]} accessibilityRole="button" disabled={uploading}
+                  onPress={() => void upload()}>
+                  <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{uploading ? 'Uploading…' : 'Retry photo upload'}</Text>
+                </Pressable>}
+              </>}
+              <Pressable style={[shared.button, shared.buttonSecondary, styles.deleteButton, deleting && shared.buttonDisabled]}
+                accessibilityRole="button" disabled={deleting} onPress={confirmDelete}>
+                <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'Deleting…' : 'Delete scan'}</Text>
+              </Pressable>
+              {deleteFailed && <Text style={shared.body} accessibilityRole="alert">Couldn't delete this scan. Try again.</Text>}
+            </View>
+          </>
+        ) : (
+          <View style={styles.actions}>
+            <Text style={shared.body}>This saved verdict is unavailable.</Text>
+            <Pressable style={shared.button} accessibilityRole="button" onPress={back}>
+              <Text style={shared.buttonText}>Back to history</Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { paddingBottom: 24 },
+  actions: { padding: 18, gap: 10 },
   deleteButton: { borderColor: colors.problem },
   deleteText: { color: colors.problem },
 });

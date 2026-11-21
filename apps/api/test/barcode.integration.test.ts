@@ -49,7 +49,7 @@ describe('barcode scan through the API, Open Food Facts and the Claude SDK', () 
     expect(openFoodFacts.requests).toHaveLength(1);
     const lookup = openFoodFacts.requests[0]!;
     expect(lookup.method).toBe('GET');
-    expect(lookup.path).toBe(`/api/v2/product/${NUTELLA_BARCODE}.json?fields=code,product_name,brands,ingredients_text,allergens_tags,nutriments`);
+    expect(lookup.path).toBe(`/api/v2/product/${NUTELLA_BARCODE}.json?fields=code,product_name,brands,ingredients_text,ingredients,allergens_tags,nutriments,serving_size,serving_quantity,product_quantity_unit`);
     expect(lookup.headers['user-agent']).toBe('FoodScannerTests/0.1');
 
     // What Claude was asked: the product's facts as text, and no image.

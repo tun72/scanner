@@ -47,9 +47,10 @@ describe('scan history', () => {
     expect(within(rows[1]!).getByText('Plain rice')).toBeTruthy();
 
     await fireEvent.press(rows[0]!);
+    expect(await screen.findByText('chilli')).toBeTruthy();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Scan info' }));
     expect(await screen.findByText(NOTICE)).toBeTruthy();
     expect(screen.getByText('Chilli and a hot, acidic broth often bring on reflux.')).toBeTruthy();
-    expect(screen.getByText('chilli')).toBeTruthy();
     expect(screen.getByText('Ask for a mild broth without chilli.')).toBeTruthy();
     expect(sent()).toEqual([]);
   });
@@ -63,7 +64,7 @@ describe('scan history', () => {
     await fireEvent.press(deleteButton);
     await choose('Delete this scan?', 'Cancel');
     expect(fake.history.saved).toHaveLength(2);
-    expect(screen.getByText(NOTICE)).toBeTruthy();
+    expect(screen.getByTestId('verdict-badge')).toBeTruthy();
 
     await fireEvent.press(deleteButton);
     await choose('Delete this scan?', 'Delete scan');
