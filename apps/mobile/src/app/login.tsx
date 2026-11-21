@@ -1,18 +1,18 @@
 import { Link } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccountRequestError, signIn } from '../account/session.ts';
 import { PrivacyPolicyLink } from '../profile/privacy-policy-link.tsx';
 import { colors, shared } from '../theme.ts';
-import { GlassBackground, GlassCard } from '../ui/glass.tsx';
+import { GlassBackground } from '../ui/glass.tsx';
 import { MascotScene } from '../ui/mascot-scene.tsx';
 
 type LoginField = 'rollNumber' | 'password';
 
 export default function LoginScreen() {
   const safeArea = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const passwordInput = useRef<TextInputInstance>(null);
   const [editing, setEditing] = useState(false);
   const [focusedField, setFocusedField] = useState<LoginField>();
@@ -21,7 +21,8 @@ export default function LoginScreen() {
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const compact = editing || height - safeArea.top - safeArea.bottom < 440;
+  const desktop = width >= 820 && height >= 560 && !editing;
+  const compact = editing || height - safeArea.top - safeArea.bottom < 600;
   const disabled = submitting || !rollNumber.trim() || !password;
 
   useEffect(() => {
@@ -60,94 +61,124 @@ export default function LoginScreen() {
     }
   };
 
-  return (
-    <GlassBackground>
-      <View testID="sign-in-layout"
-        style={[styles.content, editing && styles.editing, { paddingTop: safeArea.top + 8, paddingBottom: compact ? 8 : Math.max(safeArea.bottom, 12) }]}>
-        {!compact && <Text style={styles.wordmark}>Food Scanner</Text>}
-        <View style={styles.formStack}>
-          <View style={[styles.hero, compact && styles.compactHero]}>
-            {compact && <Text style={[shared.title, styles.compactTitle]} accessibilityRole="header">Sign in</Text>}
-            <View testID="sign-in-mascot" pointerEvents="none" style={compact ? styles.compactMascot : styles.mascot}>
-              <MascotScene style={compact ? styles.compactScene : styles.mascot} />
+  const content = (
+    <View testID="sign-in-layout" style={[
+      styles.content,
+      desktop && styles.desktopContent,
+      editing && styles.editing,
+      { paddingTop: safeArea.top + (compact ? 8 : 24), paddingBottom: Math.max(safeArea.bottom, 16) },
+    ]}>
+      <View style={[styles.panel, desktop && styles.desktopPanel]}>
+        <View style={[styles.brand, desktop && styles.desktopBrand, compact && styles.compactBrand]}>
+          <Text style={[styles.wordmark, desktop && styles.desktopWordmark]}>Food Scanner</Text>
+          <View testID="sign-in-mascot" pointerEvents="none" style={[
+            styles.mascot, desktop && styles.desktopMascot, compact && styles.compactMascot,
+          ]}>
+            <MascotScene style={styles.scene} />
+          </View>
+        </View>
+        <View style={[styles.form, desktop && styles.desktopForm, compact && styles.compactForm]}>
+          <View style={styles.formHeading}>
+            <Text style={shared.title} accessibilityRole="header">Sign in</Text>
+            {!compact && <Text style={shared.muted}>Use the roll number and password for your account.</Text>}
+          </View>
+          <View style={styles.formRow}>
+            <Text style={styles.label}>Roll number</Text>
+            <View style={[styles.field, focusedField === 'rollNumber' && styles.focusedField]}>
+              <TextInput value={rollNumber} onChangeText={setRollNumber}
+                onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
+                autoCapitalize="none" autoCorrect={false}
+                autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={styles.input}
+                returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
             </View>
           </View>
-          <GlassCard style={compact && styles.compactCard}>
-            {!compact && <Text style={shared.title} accessibilityRole="header">Sign in</Text>}
-            <View style={styles.formRow}>
-              <Text style={styles.label}>Roll number</Text>
-              <View style={[styles.field, focusedField === 'rollNumber' && styles.focusedField]}>
-                <TextInput value={rollNumber} onChangeText={setRollNumber}
-                  onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
-                  autoCapitalize="none" autoCorrect={false}
-                  autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={styles.input}
-                  returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
-              </View>
+          <View style={styles.formRow}>
+            <Text style={styles.label}>Password</Text>
+            <View style={[styles.field, focusedField === 'password' && styles.focusedField]}>
+              <TextInput ref={passwordInput} value={password} onChangeText={setPassword}
+                onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
+                autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
+                accessibilityLabel="Password" maxLength={128} style={styles.input}
+                returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
+              <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+                onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
+                <Text style={styles.revealText} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                  {visible ? 'Hide' : 'Show'}
+                </Text>
+              </Pressable>
             </View>
-            <View style={styles.formRow}>
-              <Text style={styles.label}>Password</Text>
-              <View style={[styles.field, focusedField === 'password' && styles.focusedField]}>
-                <TextInput ref={passwordInput} value={password} onChangeText={setPassword}
-                  onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
-                  autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
-                  accessibilityLabel="Password" maxLength={128} style={styles.input}
-                  returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
-                <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'Hide password' : 'Show password'}
-                  onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
-                  <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.eye}>
-                    <View style={styles.eyeOutline} />
-                    <View style={styles.pupil} />
-                    {!visible && <View style={styles.eyeSlash} />}
-                  </View>
-                </Pressable>
-              </View>
-            </View>
-            {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-            <Pressable accessibilityRole="button" disabled={disabled}
-              onPress={() => void submit()} style={[shared.button, compact && styles.compactButton, disabled && shared.buttonDisabled]}>
-              <Text style={shared.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
-            </Pressable>
-          </GlassCard>
+          </View>
+          {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled, busy: submitting }} disabled={disabled}
+            onPress={() => void submit()} style={({ pressed }) => [
+              shared.button, styles.submit, compact && styles.compactButton, pressed && styles.submitPressed,
+              disabled && shared.buttonDisabled,
+            ]}>
+            <Text style={shared.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
+          </Pressable>
         </View>
-        {!compact && <View style={styles.footer}>
-          <PrivacyPolicyLink inline />
-          <Text style={[shared.muted, styles.credit]}>
-            <Link href="https://rive.app/marketplace/28761-54484-sobo/">Sobo by Patgrivet</Link>
-            {' · '}<Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
-          </Text>
-        </View>}
-        {editing && <Pressable style={styles.dismissArea} onPress={dismissKeyboard} accessible={false}
-          accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />}
       </View>
+      {!compact && <View style={styles.footer}>
+        <PrivacyPolicyLink inline />
+        <Text style={[shared.muted, styles.credit]}>
+          <Link href="https://rive.app/marketplace/28761-54484-sobo/">Sobo by Patgrivet</Link>
+          {' · '}<Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
+        </Text>
+      </View>}
+      {editing && <Pressable style={styles.dismissArea} onPress={dismissKeyboard} accessible={false}
+        accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />}
+    </View>
+  );
+
+  return (
+    <GlassBackground>
+      {Platform.OS === 'web' ? (
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          {content}
+        </ScrollView>
+      ) : content}
     </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 22 },
+  scrollContent: { flexGrow: 1 },
+  content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 18 },
+  desktopContent: { maxWidth: 980, paddingHorizontal: 24 },
   editing: { justifyContent: 'flex-start' },
-  wordmark: { color: colors.primary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  formStack: { flexShrink: 1, minHeight: 0, gap: 12 },
-  hero: { flexShrink: 1, minHeight: 0 },
-  mascot: { flexShrink: 1, minHeight: 0 },
-  compactHero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, flexShrink: 0 },
-  compactMascot: { width: 64 },
-  compactScene: { height: 58 },
-  compactTitle: { flexShrink: 1 },
-  compactCard: { padding: 12, gap: 7 },
-  compactButton: { minHeight: 48, paddingVertical: 9 },
-  formRow: { gap: 4 },
-  label: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  field: { minHeight: 48, flexDirection: 'row', alignItems: 'stretch', borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFF9', borderRadius: 17 },
-  focusedField: { borderColor: colors.primary },
-  input: { flex: 1, minWidth: 0, minHeight: 46, paddingHorizontal: 13, paddingVertical: 8, color: colors.text, fontSize: 16 },
-  reveal: { minHeight: 44, width: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  panel: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 28, overflow: 'hidden' },
+  desktopPanel: { flexDirection: 'row' },
+  brand: {
+    paddingHorizontal: 22, minHeight: 144, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 10, backgroundColor: '#E1EAD2',
+  },
+  desktopBrand: {
+    flex: 1, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between',
+    paddingTop: 48, paddingHorizontal: 38, paddingBottom: 24,
+  },
+  compactBrand: { minHeight: 58, paddingHorizontal: 16 },
+  wordmark: { color: colors.primaryPressed, fontSize: 25, lineHeight: 30, fontWeight: '800', letterSpacing: -0.7, flexShrink: 1 },
+  desktopWordmark: { fontSize: 44, lineHeight: 48, letterSpacing: -1.6 },
+  mascot: { width: 148, height: 128, flexShrink: 1 },
+  desktopMascot: { width: '100%', height: 240, alignSelf: 'center' },
+  compactMascot: { width: 64, height: 52 },
+  scene: { height: '100%' },
+  form: { padding: 24, gap: 16 },
+  desktopForm: { flex: 1, paddingHorizontal: 38, paddingVertical: 48, justifyContent: 'center', gap: 20 },
+  compactForm: { padding: 14, gap: 8 },
+  formHeading: { gap: 4 },
+  formRow: { gap: 6 },
+  label: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  field: { minHeight: 50, flexDirection: 'row', alignItems: 'stretch', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, borderRadius: 12 },
+  focusedField: { borderColor: colors.primary, backgroundColor: colors.surface },
+  input: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 14, paddingVertical: 8, color: colors.text, fontSize: 16 },
+  reveal: { minHeight: 44, minWidth: 58, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   revealPressed: { backgroundColor: colors.tint },
-  eye: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  eyeOutline: { width: 15, height: 15, borderWidth: 1.5, borderColor: colors.muted, borderTopLeftRadius: 11, borderBottomRightRadius: 11, borderTopRightRadius: 2, borderBottomLeftRadius: 2, transform: [{ rotate: '45deg' }] },
-  pupil: { position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: colors.muted },
-  eyeSlash: { position: 'absolute', width: 24, height: 1.5, borderRadius: 1, backgroundColor: colors.muted, transform: [{ rotate: '45deg' }] },
-  error: { color: colors.problem },
+  revealText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
+  submit: { borderRadius: 12, marginTop: 2, minHeight: 54 },
+  compactButton: { minHeight: 48, paddingVertical: 9 },
+  submitPressed: { backgroundColor: colors.primaryPressed },
+  error: { color: colors.problem, backgroundColor: '#FFF1F2', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, lineHeight: 20 },
   footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 14 },
   credit: { textAlign: 'center', fontSize: 12 },
   dismissArea: { flex: 1 },
