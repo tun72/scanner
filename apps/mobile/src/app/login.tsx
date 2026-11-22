@@ -17,10 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccountRequestError, signIn } from '../account/session.ts';
 import { PrivacyPolicyLink } from '../profile/privacy-policy-link.tsx';
 import { colors, shared } from '../theme.ts';
-import { GlassBackground, GlassCard } from '../ui/glass.tsx';
-import { MascotScene } from '../ui/mascot-scene.tsx';
 
 type LoginField = 'rollNumber' | 'password';
+const isWeb = Platform.OS === 'web';
+const icons = {
+  student: require('../../assets/login/student.png'),
+  lock: require('../../assets/login/lock.png'),
+  eye: require('../../assets/login/eye.png'),
+};
 
 export default function LoginScreen() {
   const safeArea = useSafeAreaInsets();
@@ -43,7 +47,7 @@ export default function LoginScreen() {
 
   const submit = async () => {
     if (disabled) return;
-    dismissKeyboard();
+    Keyboard.dismiss();
     setError(undefined);
     setSubmitting(true);
     try {
