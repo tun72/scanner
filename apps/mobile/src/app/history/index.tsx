@@ -152,7 +152,6 @@ export default function HistoryScreen() {
               <View style={styles.summary}>
                 <Text style={styles.foodName}>{item.foodName}</Text>
                 <Text style={[styles.level, { color: look.colour }]}>{look.badge}</Text>
-                <Text style={shared.muted}>{new Date(item.scannedAt).toLocaleString('my-MM', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
               </View>
               <Text style={styles.chevron} importantForAccessibility="no" accessibilityElementsHidden>›</Text>
             </Pressable>
