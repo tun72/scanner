@@ -1,4 +1,4 @@
-import { burmeseText, burmeseVerdict, type VerdictResponse } from '@food-scanner/contracts';
+import { burmeseText, burmeseVerdict, type VerdictReason, type VerdictResponse } from '@food-scanner/contracts';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { VERDICT_LOOKS } from './verdict-look.ts';
 type Range = { min: number; max: number };
 const number = (value: number) => value.toLocaleString('my-MM', { maximumFractionDigits: 1 });
 const rangeText = ({ min, max }: Range, unit: string) => `${number(min)}${min === max ? '' : '–' + number(max)} ${unit}`;
+const reasonPriority = (reason: VerdictReason) => 2 * Number(reason.severity === 'avoid') + Number(reason.foodEvidence?.certainty === 'observed');
 
 export function VerdictCard({ verdict: savedVerdict, photo, note, onBack }: {
   verdict: VerdictResponse;
@@ -44,11 +45,14 @@ export function VerdictCard({ verdict: savedVerdict, photo, note, onBack }: {
   const listedAllergens = new Set(product?.allergens?.map(name => name.toLowerCase()));
   const isAllergen = (name: string) => listedAllergens.has(name.toLowerCase());
   const highlighted = [...flagged].sort((a, b) => Number(isAllergen(b)) - Number(isAllergen(a))).slice(0, 2);
-  const reasons = [...new Set([...verdict.reasons]
-    .sort((a, b) => Number(b.severity === 'avoid') - Number(a.severity === 'avoid'))
-    .map(reason => reason.explanation))]
-    .filter(explanation => explanation !== burmeseText('Compare the ingredients with your own notes. This scan does not evaluate free-text notes.'));
-  const summary = advice ?? reasons[0] ?? look.line;
+  const seen = new Set([burmeseText('Compare the ingredients with your own notes. This scan does not evaluate free-text notes.')]);
+  if (advice) seen.add(advice);
+  const reasons = [...verdict.reasons].sort((a, b) => reasonPriority(b) - reasonPriority(a)).filter(({ explanation }) => {
+    if (seen.has(explanation)) return false;
+    seen.add(explanation);
+    return true;
+  });
+  const summary = advice ?? reasons[0]?.explanation ?? look.line;
   const info = () => setSheet('scan');
 
   return (
@@ -123,13 +127,24 @@ export function VerdictCard({ verdict: savedVerdict, photo, note, onBack }: {
             <Text style={shared.title} accessibilityRole="header">{sheet === 'calories' ? 'ကယ်လိုရီ' : 'စားမယ်ဆိုရင်'}</Text>
             {sheet === 'calories' ? <Text style={shared.body}>{estimated ? `ဓာတ်ပုံထဲရှိ ပမာဏအတွက် ${energy} ခန့် ရှိသည်။` : `${energy} ${reported?.quantity ?? ''} · Open Food Facts`}</Text> : (
               <>
-                <GlassCard>
+                {(advice || reasons.length === 0) && <GlassCard>
+                  {advice && verdict.level !== 'unsure' && <Text style={shared.heading}>ဘယ်လို စားရင် ပိုအဆင်ပြေမလဲ</Text>}
                   <Text style={shared.body}>{summary}</Text>
-                  {reasons.filter(reason => reason !== summary).slice(0, 2).map(reason => (
-                    <Text key={reason} style={shared.body}>{reason}</Text>
+                </GlassCard>}
+                {reasons.length > 0 && <GlassCard>
+                  <Text style={shared.heading}>ဘာကို သတိထားရမလဲ</Text>
+                  {reasons.map(({ explanation, foodEvidence }) => (
+                    <View key={explanation} style={styles.reason}>
+                      {foodEvidence && <View style={styles.tags}>
+                        <Text style={styles.amount}>{foodEvidence.item}</Text>
+                        <Text style={[styles.tag, foodEvidence.certainty === 'observed' && styles.source]}>
+                          {foodEvidence.certainty === 'possible' ? 'ပါနိုင်တယ်' : verdict.source === 'photo' ? 'ပုံထဲမှာ တွေ့ရတယ်' : 'အညွှန်းမှာ ပါတယ်'}
+                        </Text>
+                      </View>}
+                      <Text style={shared.body}>{explanation}</Text>
+                    </View>
                   ))}
-                  {flagged.length > 2 && <Text style={shared.muted}>{flagged.join('၊ ')}</Text>}
-                </GlassCard>
+                </GlassCard>}
                 {note && <GlassCard>
                   <Text style={shared.heading}>ကိုယ့်မှတ်စုနဲ့ တိုက်စစ်ပါ</Text>
                   <Text style={shared.body}>{note}</Text>
@@ -159,6 +174,7 @@ const styles = StyleSheet.create({
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   tag: { backgroundColor: '#F4E8D3', borderRadius: 13, color: '#513D1E', paddingHorizontal: 8, paddingVertical: 4, fontSize: 13 },
   source: { backgroundColor: '#DEECDA', color: colors.primary },
+  reason: { gap: 4 },
   row: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4, paddingVertical: 5, borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
   range: { height: 5, borderRadius: 8, backgroundColor: colors.primary },
   sheet: { flex: 1, backgroundColor: colors.background },

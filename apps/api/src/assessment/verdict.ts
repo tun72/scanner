@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CONCERN_SEVERITIES, CONDITION_LABELS, type ConcernSeverity, type ConditionId, type ScanProfile, type VerdictLevel } from '@food-scanner/contracts';
+import { CONCERN_SEVERITIES, CONDITION_LABELS, type ConcernSeverity, type ConditionId, type ScanProfile, type VerdictLevel, type VerdictReason } from '@food-scanner/contracts';
 
 /** A concern is about one of the user's conditions, or about what they wrote in their notes. */
 export const NOTES_TARGET = 'notes';
@@ -11,6 +11,7 @@ export interface Concern {
   trigger: string;
   severity: ConcernSeverity;
   explanation: string;
+  foodEvidence?: NonNullable<VerdictReason['foodEvidence']>;
 }
 
 /** What the AI reports about one food for one profile, before the verdict rules run. */

@@ -13,12 +13,13 @@ interface CommonApiConfig {
 }
 
 export type ApiConfig = CommonApiConfig & (
-  | { anthropicApiKey: string; geminiApiKey?: never }
-  | { geminiApiKey: string; anthropicApiKey?: never }
+  | { anthropicApiKey: string; geminiApiKey?: never; geminiModel?: never }
+  | { geminiApiKey: string; geminiModel: string; anthropicApiKey?: never }
 );
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_MODEL = 'claude-opus-5-5';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
 /** A verdict should arrive within about 10 seconds, so one slow call may not be retried many times. */
 const CLAUDE_TIMEOUT_MS = 15_000;
@@ -56,7 +57,9 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
   return {
     host: env.HOST?.trim() || '0.0.0.0',
     port: readPort(env.PORT),
-    ...(useGemini ? { geminiApiKey: apiKey } : { anthropicApiKey: apiKey }),
+    ...(useGemini
+      ? { geminiApiKey: apiKey, geminiModel: env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL }
+      : { anthropicApiKey: apiKey }),
     model: env.CLAUDE_MODEL?.trim() || DEFAULT_MODEL,
     claudeTimeoutMs: CLAUDE_TIMEOUT_MS,
     claudeMaxRetries: CLAUDE_MAX_RETRIES,

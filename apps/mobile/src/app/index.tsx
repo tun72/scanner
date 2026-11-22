@@ -44,7 +44,7 @@ export default function HomeScreen() {
 
   return (
     <GlassBackground>
-      <ScrollView contentContainerStyle={[shared.screen, { paddingTop: 16 + insets.top, paddingBottom: 32 + insets.bottom }]}>
+      <ScrollView contentContainerStyle={[shared.screen, { paddingTop: 22 + insets.top, paddingBottom: 32 + insets.bottom }]}>
         <View style={styles.actions}>
           <Pressable style={({ pressed }) => [styles.tile, styles.photoTile, pressed && styles.pressed]} accessibilityRole="button"
             onPress={() => session ? scan('photo') : router.push('/scan')}>

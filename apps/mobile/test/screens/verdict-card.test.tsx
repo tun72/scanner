@@ -49,6 +49,25 @@ describe('the verdict card', () => {
     expect(screen.getByText(NOTICE)).toBeTruthy();
   });
 
+  it('shows food-specific evidence with a distinct action and cleans up older repeated copy', async () => {
+    await render(<VerdictCard verdict={verdict({
+      tip: 'ငရုတ်ဆီကို သပ်သပ်ထည့်ပေးဖို့ ပြောပါ။',
+      reasons: [
+        { condition: 'Gastritis', severity: 'caution', explanation: 'အစပ်ပါဝင်ပစ္စည်းများ ပါဝင်ပုံ ရသည်။ ပါဝင်ပစ္စည်းများကို စစ်ပြီး သင်စားနေကျ ခံနိုင်သည့်ပမာဏကို ထည့်သွင်းစဉ်းစားပါ။' },
+        { condition: 'Gastritis', severity: 'caution', explanation: 'ဟင်းရည်ပေါ်မှာ ဆီလွှာတွေ့ရပါတယ်။', foodEvidence: { item: 'ဆီများတဲ့ ဟင်းရည်', certainty: 'observed' } },
+        { condition: 'Gastritis', severity: 'caution', explanation: 'အရောင်အရ သံပရာရည် ပါနိုင်ပါတယ်။', foodEvidence: { item: 'သံပရာရည်', certainty: 'possible' } },
+      ],
+    })} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
+    expect(screen.getByText('ဘယ်လို စားရင် ပိုအဆင်ပြေမလဲ')).toBeTruthy();
+    expect(screen.getByText('ပုံထဲမှာ တွေ့ရတယ်')).toBeTruthy();
+    expect(screen.getByText('ပါနိုင်တယ်')).toBeTruthy();
+    expect(screen.getByText('သံပရာရည်')).toBeTruthy();
+    expect(screen.getByText('တွေ့ရတာက အစပ်ပါဝင်ပစ္စည်းများ ပါ။')).toBeTruthy();
+    expect(screen.queryByText(/သင်စားနေကျ ခံနိုင်သည့်ပမာဏ/)).toBeNull();
+  });
+
   it.each([
     ['safe', 'သင့်လျော်နိုင်', '#1F7A4D'],
     ['caution', 'သတိပြုရန်', '#9A5B00'],

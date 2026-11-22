@@ -41,9 +41,15 @@ const copy = new Map<string, string>([
   ["Food Scanner is a guide, not medical advice. If you're unsure, ask your doctor or dietitian.", 'ဤရလဒ်သည် ယေဘုယျလမ်းညွှန်သာ ဖြစ်သည်။ ဆေးဘက်ဆိုင်ရာ အကြံဉာဏ်အတွက် ဆရာဝန် သို့မဟုတ် အာဟာရပညာရှင်နှင့် တိုင်ပင်ပါ။'],
 ]);
 for (const [source, label] of Object.entries(features)) {
-  for (const [prefix, ending] of [['The food appears to include', 'ပါဝင်ပုံ ရသည်'], ['The food might include', 'ပါဝင်နိုင်သည်']] as const) {
-    copy.set(`${prefix} ${source.toLowerCase()}. Check the ingredients and consider your usual tolerance.`,
-      `${label} ${ending}။ ပါဝင်ပစ္စည်းများကို စစ်ပြီး သင်စားနေကျ ခံနိုင်သည့်ပမာဏကို ထည့်သွင်းစဉ်းစားပါ။`);
+  for (const [prefix, oldEnding, lead] of [
+    ['The food appears to include', 'ပါဝင်ပုံ ရသည်', 'တွေ့ရတာက'],
+    ['The food might include', 'ပါဝင်နိုင်သည်', 'ပါနိုင်တာက'],
+  ] as const) {
+    const english = `${prefix} ${source.toLowerCase()}.`;
+    const burmese = `${lead} ${label} ပါ။`;
+    copy.set(english, burmese);
+    copy.set(`${english} Check the ingredients and consider your usual tolerance.`, burmese);
+    copy.set(`${label} ${oldEnding}။ ပါဝင်ပစ္စည်းများကို စစ်ပြီး သင်စားနေကျ ခံနိုင်သည့်ပမာဏကို ထည့်သွင်းစဉ်းစားပါ။`, burmese);
   }
 }
 export const burmeseText = (text: string) => copy.get(text) ?? text;

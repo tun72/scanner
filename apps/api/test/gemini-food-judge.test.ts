@@ -6,18 +6,20 @@ import { createGeminiFoodJudge } from '../src/infrastructure/gemini-food-judge.t
 import { loadConfig } from '../src/config.ts';
 import { FIXED_NOW, barcodeScan, fakeProducts, photoScan } from './helpers.ts';
 
-const response = (finishReason = 'STOP') => Response.json({
+const response = (finishReason = 'STOP', facts = {}) => Response.json({
   candidates: [{ finishReason, content: { parts: [{ text: JSON.stringify({
     isFood: true, foodName: 'Rice with cream', confidence: 'high',
     features: [{ kind: 'lactose', evidence: 'observed' }, { kind: 'spicy', evidence: 'possible' }],
     suggestion: 'Ask for the chilli on the side.',
+    ...facts,
   }) }] } }],
   usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 30, thoughtsTokenCount: 5 },
 });
 
 describe('Gemini food-only mode', () => {
   it('selects Gemini explicitly and requires its own key', () => {
-    expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture' })).toMatchObject({ geminiApiKey: 'fixture' });
+    expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture' })).toMatchObject({ geminiApiKey: 'fixture', geminiModel: 'gemini-3.8-flash' });
+    expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture', GEMINI_MODEL: ' gemini-3.6-flash ' }).geminiModel).toBe('gemini-3.6-flash');
     expect(() => loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', ANTHROPIC_API_KEY: 'old-provider' })).toThrow('GEMINI_API_KEY is not set.');
   });
 
@@ -51,7 +53,7 @@ describe('Gemini food-only mode', () => {
       const [url, options] = fetcher.mock.calls[0]!;
       expect(fetcher.mock.calls[1]![1]?.body).toBe(options?.body);
       expect(fetcher.mock.calls[1]![1]?.signal).not.toBe(options?.signal);
-      expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
+      expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
       expect(options?.headers).toMatchObject({ 'x-goog-api-key': 'fixture' });
       const body = String(options?.body);
       expect(JSON.parse(body).systemInstruction.parts[0].text).toContain('Acid reflux (GERD), Gastritis, Stomach or duodenal ulcer');
@@ -63,6 +65,29 @@ describe('Gemini food-only mode', () => {
     } finally {
       await api.close();
     }
+  });
+
+  it('keeps one food-specific reason per feature and preserves observed and possible evidence', async () => {
+    const explanation = 'ငရုတ်သီးအဖတ်တွေ မြင်ရပြီး အစပ်မတည့်ရင် ရင်ပူလာနိုင်ပါတယ်။';
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(response('STOP', {
+      features: [
+        { kind: 'spicy', evidence: 'possible', item: 'ငရုတ်ဆီ' },
+        { kind: 'spicy', evidence: 'observed', item: 'ငရုတ်သီးအဖတ်', explanation },
+        { kind: 'fatty', evidence: 'possible', item: 'ဆီများတဲ့ ဟင်းရည်', explanation: 'ဟင်းရည်က ဆီများပုံရပြီး ဆီများတဲ့အစာတွေ စားရင် ဗိုက်မအီတတ်သူတွေအတွက် သတိထားသင့်ပါတယ်။' },
+      ],
+      suggestion: 'ငရုတ်သီးကို သပ်သပ်ထည့်ပေးဖို့ ပြောပါ။',
+    }));
+    const assess = createAssessFood({ judge: createGeminiFoodJudge({ apiKey: 'fixture', fetcher }), products: fakeProducts(), now: () => FIXED_NOW });
+
+    const result = await assess({ ...barcodeScan(), locale: 'my-MM', profile: { conditions: ['gerd', 'gastritis', 'peptic-ulcer'] } });
+    expect(result).toMatchObject({ kind: 'verdict', response: {
+      flaggedIngredients: ['ငရုတ်သီးအဖတ်', 'ဆီများတဲ့ ဟင်းရည်'],
+      reasons: [
+        expect.objectContaining({ explanation, foodEvidence: { item: 'ငရုတ်သီးအဖတ်', certainty: 'observed' } }),
+        expect.objectContaining({ foodEvidence: { item: 'ဆီများတဲ့ ဟင်းရည်', certainty: 'possible' } }),
+      ],
+      tip: 'ငရုတ်သီးကို သပ်သပ်ထည့်ပေးဖို့ ပြောပါ။',
+    } });
   });
 
   it('requests Burmese food identification and localizes the result without sharing the profile', async () => {

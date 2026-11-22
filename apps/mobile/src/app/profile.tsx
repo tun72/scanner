@@ -9,7 +9,7 @@ import { legacyProfileStore, profileStore, saveProfile } from '../services.ts';
 import { colors, shared } from '../theme.ts';
 import { GlassBackground } from '../ui/glass.tsx';
 
-const NOTE_LABEL = 'ဗိုက်နဲ့ မတည့်တဲ့ အစားအစာ';
+const NOTE_LABEL = 'Optional Note';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -62,12 +62,12 @@ export default function ProfileScreen() {
           }).catch(() => setSaveFailed(true));
         }}><Text style={[shared.buttonText, shared.buttonSecondaryText]}>ယခင်အချက်အလက်ကို သုံးရန်</Text></Pressable>}
 
-        <Text style={shared.heading}>{NOTE_LABEL} <Text style={shared.muted}>(ဖြည့်လိုမှသာ)</Text></Text>
+        <Text style={shared.heading}>{NOTE_LABEL}</Text>
         <TextInput
           style={styles.notes}
           value={form.notes}
           onChangeText={(notes) => setForm(changeNotes(form, notes))}
-          placeholder="ဥပမာ - နို့သောက်ရင် ဗိုက်အောင့်တတ်တယ်"
+          placeholder="ဥပမာ - နို့သောက်ရင် ဗိုက်အောင့်တယ်"
           placeholderTextColor={colors.muted}
           maxLength={MAX_NOTES_LENGTH}
           multiline

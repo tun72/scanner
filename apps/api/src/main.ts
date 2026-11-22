@@ -19,7 +19,10 @@ const config = loadConfig(process.env);
 
 const requireFoodOnlyPhoto = config.geminiApiKey !== undefined;
 const judge = config.geminiApiKey !== undefined
-  ? createGeminiFoodJudge({ apiKey: config.geminiApiKey, onStatus: status => server.log.warn({ status }, 'Gemini request failed') })
+  ? createGeminiFoodJudge({
+    apiKey: config.geminiApiKey, model: config.geminiModel,
+    onStatus: status => server.log.warn({ status }, 'Gemini request failed'),
+  })
   : createClaudeFoodJudge({
     messages: new Anthropic({
       apiKey: config.anthropicApiKey, timeout: config.claudeTimeoutMs, maxRetries: config.claudeMaxRetries,
