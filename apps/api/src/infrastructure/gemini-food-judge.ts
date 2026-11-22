@@ -175,10 +175,10 @@ export function createGeminiFoodJudge({
     return recognize(body, false);
   }
 
-  async function judge(food: FoodInput, profile: ScanProfile): Promise<JudgeResult> {
+  async function judge(food: FoodInput, profile: ScanProfile, locale: string): Promise<JudgeResult> {
     // The outbound call accepts food data only. The user's profile is used here on the server.
     const body = JSON.stringify({
-      systemInstruction: { parts: [{ text: instruction }] },
+      systemInstruction: { parts: [{ text: locale.split('-')[0] === 'my' ? instruction + ' Write foodName and ingredient names in natural Burmese (Myanmar Unicode). Keep all enum codes unchanged.' : instruction }] },
       contents: [{ role: 'user', parts: [food] }],
       generationConfig: { maxOutputTokens: 2000, responseMimeType: 'application/json', responseJsonSchema },
     });
@@ -188,7 +188,7 @@ export function createGeminiFoodJudge({
   }
 
   return {
-    async judgePhoto({ photoBase64, profile }) {
+    async judgePhoto({ photoBase64, profile, locale }) {
       let image: Buffer;
       try {
         // Re-encoding drops EXIF, GPS, comments, and other embedded metadata.
@@ -197,8 +197,8 @@ export function createGeminiFoodJudge({
       } catch {
         return { ok: false, failure: 'invalid-reply' };
       }
-      return judge({ inlineData: { mimeType: 'image/jpeg', data: image.toString('base64') } }, profile);
+      return judge({ inlineData: { mimeType: 'image/jpeg', data: image.toString('base64') } }, profile, locale);
     },
-    judgeProduct: ({ product, profile }) => judge({ text: buildProductText(product) }, profile),
+    judgeProduct: ({ product, profile, locale }) => judge({ text: buildProductText(product) }, profile, locale),
   };
 }

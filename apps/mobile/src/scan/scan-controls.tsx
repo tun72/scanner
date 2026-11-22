@@ -3,7 +3,7 @@ import { colors, shared } from '../theme.ts';
 
 export function Button({ label, onPress, secondary = false, disabled = false }: { label: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
   return (
-    <Pressable style={[shared.button, secondary && shared.buttonSecondary, disabled && shared.buttonDisabled]} disabled={disabled} onPress={onPress} accessibilityRole="button">
+    <Pressable style={({ pressed }) => [shared.button, secondary && shared.buttonSecondary, disabled && shared.buttonDisabled, pressed && { opacity: 0.82 }]} disabled={disabled} onPress={onPress} accessibilityRole="button">
       <Text style={[shared.buttonText, secondary && shared.buttonSecondaryText]}>{label}</Text>
     </Pressable>
   );
@@ -23,9 +23,7 @@ export const styles = StyleSheet.create({
   cameraControls: { borderRadius: 28, gap: 12, padding: 14, backgroundColor: colors.background },
   hint: { fontSize: 16, lineHeight: 22, color: colors.text, textAlign: 'center' },
   callout: { backgroundColor: colors.tintLight },
-  resultActions: { padding: 18, gap: 10 },
-  analysis: { flex: 1, paddingHorizontal: 18, justifyContent: 'space-between' },
-  analysisTint: { backgroundColor: 'rgba(18,34,24,0.24)' },
-  analysisFrame: { borderWidth: 2, borderColor: '#FAF4D9', borderRadius: 24, backgroundColor: 'rgba(173,205,159,0.13)' },
+  resultActions: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 18, gap: 10 },
+  stage: { alignSelf: 'stretch', aspectRatio: 1.55, borderRadius: 16, overflow: 'hidden', backgroundColor: '#18463A' },
   progress: { alignItems: 'center', padding: 18 },
 });

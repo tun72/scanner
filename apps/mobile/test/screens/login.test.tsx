@@ -31,11 +31,11 @@ describe('mobile account routes', () => {
     const keyboard = jest.spyOn(Keyboard, 'addListener');
     const nativeFocus = jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue({} as TextInputInstance);
     await renderRouter(appRoutes, { initialUrl: '/login' });
-    await screen.findByRole('header', { name: 'Sign in' });
-    expect(screen.getByText('Sobo by Patgrivet')).toBeTruthy();
+    await screen.findByRole('header', { name: 'အကောင့်ဝင်ရန်' });
+    expect(screen.getByText('ဆိုဘို · Patgrivet')).toBeTruthy();
     const mascot = screen.getByTestId('sign-in-mascot');
-    const roll = screen.getByLabelText('Roll number');
-    const password = screen.getByLabelText('Password');
+    const roll = screen.getByLabelText('ခုံအမှတ်');
+    const password = screen.getByLabelText('စကားဝှက်');
     const layout = () => StyleSheet.flatten(screen.getByTestId('sign-in-layout').props.style);
     const initialLayout = layout();
     expect(screen.container.queryAll(element => typeof element.props.onPress === 'function'
@@ -53,8 +53,8 @@ describe('mobile account routes', () => {
     const compactLayout = layout();
     expect(compactLayout.justifyContent).toBe('flex-start');
     expect(screen.getByTestId('sign-in-mascot')).toBe(mascot);
-    expect(screen.getByLabelText('Roll number')).toBe(roll);
-    expect(screen.getByLabelText('Password')).toBe(password);
+    expect(screen.getByLabelText('ခုံအမှတ်')).toBe(roll);
+    expect(screen.getByLabelText('စကားဝှက်')).toBe(password);
 
     const hidden = { duration: 0, easing: 'keyboard', endCoordinates: { screenX: 0, screenY: 800, width: 375, height: 0 } } as const;
     await act(() => hide(hidden));
@@ -64,12 +64,12 @@ describe('mobile account routes', () => {
     await fireEvent(roll, 'focus');
     expect(layout()).toEqual(compactLayout);
     expect(screen.getByTestId('sign-in-mascot')).toBe(mascot);
-    expect(screen.getByLabelText('Roll number').props.value).toBe('FIXTURE-01');
-    expect(screen.getByLabelText('Password').props.value).toBe('fixture-only-password');
+    expect(screen.getByLabelText('ခုံအမှတ်').props.value).toBe('FIXTURE-01');
+    expect(screen.getByLabelText('စကားဝှက်').props.value).toBe('fixture-only-password');
 
     nativeFocus.mockReturnValue(undefined);
     await act(() => hide(hidden));
-    expect(screen.getByText('Sobo by Patgrivet')).toBeTruthy();
+    expect(screen.getByText('ဆိုဘို · Patgrivet')).toBeTruthy();
     expect(layout()).toEqual(initialLayout);
   });
 
@@ -88,24 +88,24 @@ describe('mobile account routes', () => {
     });
 
     const first = await renderRouter(appRoutes, { initialUrl: '/history/hidden' });
-    await screen.findByRole('header', { name: 'Sign in' });
+    await screen.findByRole('header', { name: 'အကောင့်ဝင်ရန်' });
     expect(screen.container.queryAll(element => element.type.includes('ScrollView'))).toHaveLength(0);
-    expect(screen.queryByText('This saved verdict is unavailable.')).toBeNull();
-    await fireEvent.changeText(screen.getByLabelText('Roll number'), ' fixture-01 ');
-    await fireEvent.changeText(screen.getByLabelText('Password'), 'wrong');
-    expect(screen.getByLabelText('Password').props.secureTextEntry).toBe(true);
-    await fireEvent.press(screen.getByRole('button', { name: 'Show password' }));
-    expect(screen.getByLabelText('Password').props.secureTextEntry).toBe(false);
-    await fireEvent(screen.getByLabelText('Password'), 'focus');
-    await fireEvent.press(screen.getByRole('button', { name: 'Hide password' }));
-    expect(screen.getByLabelText('Password').props).toMatchObject({ secureTextEntry: true, value: 'wrong' });
-    await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByText('Check your roll number and password.');
+    expect(screen.queryByText('ဤရလဒ်ကို မတွေ့ပါ။')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('ခုံအမှတ်'), ' fixture-01 ');
+    await fireEvent.changeText(screen.getByLabelText('စကားဝှက်'), 'wrong');
+    expect(screen.getByLabelText('စကားဝှက်').props.secureTextEntry).toBe(true);
+    await fireEvent.press(screen.getByRole('button', { name: 'စကားဝှက် ပြရန်' }));
+    expect(screen.getByLabelText('စကားဝှက်').props.secureTextEntry).toBe(false);
+    await fireEvent(screen.getByLabelText('စကားဝှက်'), 'focus');
+    await fireEvent.press(screen.getByRole('button', { name: 'စကားဝှက် ဖျောက်ရန်' }));
+    expect(screen.getByLabelText('စကားဝှက်').props).toMatchObject({ secureTextEntry: true, value: 'wrong' });
+    await fireEvent.press(screen.getByRole('button', { name: 'အကောင့်ဝင်ရန်' }));
+    await screen.findByText('ခုံအမှတ်နှင့် စကားဝှက်ကို ပြန်စစ်ပါ။');
     expect(stored.size).toBe(0);
 
-    await fireEvent.changeText(screen.getByLabelText('Password'), 'fixture-only-password');
-    await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByRole('button', { name: 'Photo scan' });
+    await fireEvent.changeText(screen.getByLabelText('စကားဝှက်'), 'fixture-only-password');
+    await fireEvent.press(screen.getByRole('button', { name: 'အကောင့်ဝင်ရန်' }));
+    await screen.findByRole('button', { name: 'ဓာတ်ပုံဖြင့် စစ်ရန်' });
     expect(JSON.parse(stored.get('mobile-account-session') ?? '{}')).toEqual(session);
     expect(request).toHaveBeenCalledWith('https://scanner.test/v1/session', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ rollNumber: session.user.rollNumber, password: 'fixture-only-password' }),
@@ -113,9 +113,9 @@ describe('mobile account routes', () => {
     await first.unmount();
 
     await renderRouter(appRoutes);
-    await screen.findByRole('button', { name: 'Photo scan' });
-    await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
-    await screen.findByRole('header', { name: 'Sign in' });
+    await screen.findByRole('button', { name: 'ဓာတ်ပုံဖြင့် စစ်ရန်' });
+    await fireEvent.press(screen.getByRole('button', { name: 'အကောင့်ထွက်ရန်' }));
+    await screen.findByRole('header', { name: 'အကောင့်ဝင်ရန်' });
     expect(stored.has('mobile-account-session')).toBe(false);
     expect(request).toHaveBeenCalledWith('https://scanner.test/v1/session', expect.objectContaining({ method: 'DELETE' }));
   });

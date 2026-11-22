@@ -1,7 +1,8 @@
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useMotionAllowed } from './use-motion.ts';
 import { colors } from '../theme.ts';
 
 const SolidSurfaces = createContext(Platform.OS === 'ios');
@@ -26,11 +27,22 @@ export function GlassSurfaceProvider({ children }: { children: ReactNode }) {
 
 export function GlassBackground({ children }: { children: ReactNode }) {
   const solid = useContext(SolidSurfaces);
+  const motion = useMotionAllowed();
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!motion) { opacity.setValue(1); return; }
+    opacity.setValue(0.9);
+    const fade = Animated.timing(opacity, {
+      toValue: 1, duration: 180, easing: Easing.out(Easing.quad), isInteraction: false, useNativeDriver: Platform.OS !== 'web',
+    });
+    fade.start();
+    return () => fade.stop();
+  }, [motion, opacity]);
   return (
-    <View style={styles.page}>
-      {!solid && <LinearGradient colors={['#DCE8CD', '#EDF1DD', '#F0E4C7']} style={StyleSheet.absoluteFill} pointerEvents="none" />}
+    <Animated.View style={[styles.page, { opacity }]}>
+      {!solid && <LinearGradient colors={['#E7F1E9', '#F4F7F3', '#F8F6F0']} style={StyleSheet.absoluteFill} pointerEvents="none" />}
       {children}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -52,7 +64,7 @@ export function GlassIcon({ label, glyph, onPress }: { label: string; glyph: str
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
-  card: { padding: 16, gap: 8, borderRadius: 22, borderWidth: 1, borderColor: '#F9FFF0', backgroundColor: '#FAFFF094' },
+  card: { padding: 18, gap: 12, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   solid: { backgroundColor: '#FCFDF7', borderColor: '#DDE4D6' },
   icon: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: '#F7FFF3E8', alignItems: 'center', justifyContent: 'center' },
   nativeIcon: { backgroundColor: '#F7FFF34D' },

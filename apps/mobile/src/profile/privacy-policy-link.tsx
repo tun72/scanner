@@ -6,12 +6,12 @@ export function PrivacyPolicyLink({ inline = false }: { inline?: boolean }) {
   if (!url?.startsWith('https://')) return null;
 
   const open = () => {
-    void Linking.openURL(url).catch(() => Alert.alert('Could not open the privacy policy', 'Please try again.'));
+    void Linking.openURL(url).catch(() => Alert.alert('မူဝါဒကို ဖွင့်၍ မရပါ', 'ပြန်ကြိုးစားပါ။'));
   };
 
   return (
     <Pressable onPress={open} accessibilityRole="link" style={inline ? styles.inline : [shared.button, shared.buttonSecondary]}>
-      <Text style={inline ? [shared.muted, styles.inlineLabel] : [shared.buttonText, shared.buttonSecondaryText]}>Privacy policy</Text>
+      <Text style={inline ? [shared.muted, styles.inlineLabel] : [shared.buttonText, shared.buttonSecondaryText]}>ကိုယ်ရေးအချက်အလက် မူဝါဒ</Text>
     </Pressable>
   );
 }

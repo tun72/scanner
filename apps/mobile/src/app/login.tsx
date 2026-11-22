@@ -57,8 +57,8 @@ export default function LoginScreen() {
       setPassword('');
     } catch (failure) {
       const status = failure instanceof AccountRequestError ? failure.status : 0;
-      setError(status === 401 || status === 400 ? 'Check your roll number and password.'
-        : status === 429 ? 'Wait a minute and try again.' : 'Couldn’t sign in. Try again.');
+      setError(status === 401 || status === 400 ? 'ခုံအမှတ်နှင့် စကားဝှက်ကို ပြန်စစ်ပါ။'
+        : status === 429 ? 'တစ်မိနစ်စောင့်ပြီး ပြန်ကြိုးစားပါ။' : 'အကောင့်ဝင်၍ မရသေးပါ။ ပြန်ကြိုးစားပါ။');
     } finally {
       setSubmitting(false);
     }
@@ -74,7 +74,7 @@ export default function LoginScreen() {
     ]}>
       <View style={[styles.panel, desktop && styles.desktopPanel]}>
         <View style={[styles.brand, desktop && styles.desktopBrand, compact && styles.compactBrand]}>
-          <Text style={[styles.wordmark, desktop && styles.desktopWordmark]}>Food Scanner</Text>
+          <Text style={[styles.wordmark, desktop && styles.desktopWordmark]}>အစားအသောက်စစ်ဆေးရေး</Text>
           <View testID="sign-in-mascot" pointerEvents="none" style={[
             styles.mascot, desktop && styles.desktopMascot, compact && styles.compactMascot,
           ]}>
@@ -83,31 +83,30 @@ export default function LoginScreen() {
         </View>
         <View style={[styles.form, desktop && styles.desktopForm, compact && styles.compactForm]}>
           <View style={styles.formHeading}>
-            <Text style={shared.title} accessibilityRole="header">Sign in</Text>
-            {!compact && <Text style={shared.muted}>Use the roll number and password for your account.</Text>}
+            <Text style={shared.title} accessibilityRole="header">အကောင့်ဝင်ရန်</Text>
           </View>
           <View style={styles.formRow}>
-            <Text style={styles.label}>Roll number</Text>
+            <Text style={styles.label}>ခုံအမှတ်</Text>
             <View style={[styles.field, focusedField === 'rollNumber' && styles.focusedField]}>
               <TextInput value={rollNumber} onChangeText={setRollNumber}
                 onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
                 autoCapitalize="none" autoCorrect={false}
-                autoComplete="username" accessibilityLabel="Roll number" maxLength={50} style={[styles.input, isWeb && styles.webInput]}
+                autoComplete="username" accessibilityLabel="ခုံအမှတ်" maxLength={50} style={[styles.input, isWeb && styles.webInput]}
                 returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
             </View>
           </View>
           <View style={styles.formRow}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>စကားဝှက်</Text>
             <View style={[styles.field, focusedField === 'password' && styles.focusedField]}>
               <TextInput ref={passwordInput} value={password} onChangeText={setPassword}
                 onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
                 autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
-                accessibilityLabel="Password" maxLength={128} style={[styles.input, isWeb && styles.webInput]}
+                accessibilityLabel="စကားဝှက်" maxLength={128} style={[styles.input, isWeb && styles.webInput]}
                 returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
-              <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+              <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
                 onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
                 <Text style={styles.revealText} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                  {visible ? 'Hide' : 'Show'}
+                  {visible ? 'ဖျောက်' : 'ပြ'}
                 </Text>
               </Pressable>
             </View>
@@ -118,7 +117,7 @@ export default function LoginScreen() {
               shared.button, styles.submit, compact && styles.compactButton, pressed && styles.submitPressed,
               disabled && shared.buttonDisabled,
             ]}>
-            <Text style={shared.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
+            <Text style={shared.buttonText}>{submitting ? 'ဝင်နေသည်…' : 'အကောင့်ဝင်ရန်'}</Text>
           </Pressable>
           {isWeb && <InstallApp />}
         </View>
@@ -126,7 +125,7 @@ export default function LoginScreen() {
       {!compact && <View style={styles.footer}>
         <PrivacyPolicyLink inline />
         <Text style={[shared.muted, styles.credit]}>
-          <Link href="https://rive.app/marketplace/28761-54484-sobo/">Sobo by Patgrivet</Link>
+          <Link href="https://rive.app/marketplace/28761-54484-sobo/">ဆိုဘို · Patgrivet</Link>
           {' · '}<Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
         </Text>
       </View>}
@@ -168,14 +167,14 @@ function InstallApp() {
         onPress={() => setExpanded(value => !value)}
         style={({ pressed }) => [styles.installButton, pressed && styles.revealPressed]}
       >
-        <Text style={styles.revealText}>Install App</Text>
+        <Text style={styles.revealText}>ပင်မမျက်နှာပြင်သို့ ထည့်ရန်</Text>
       </Pressable>
       {expanded && (
         <View style={styles.installHelp}>
-          <Text accessibilityRole="header" style={styles.label}>Add Food Scanner to your Home Screen</Text>
-          <Text style={shared.muted}>{browser === 'chrome' ? '1. Tap Share next to Chrome’s address bar.' : '1. Open your browser’s Share menu.'}</Text>
-          <Text style={shared.muted}>2. Tap Add to Home Screen.</Text>
-          <Text style={shared.muted}>3. Tap Add, then open Food Scanner from its new icon.</Text>
+          <Text accessibilityRole="header" style={styles.label}>ထည့်သွင်းနည်း</Text>
+          <Text style={shared.muted}>{browser === 'chrome' ? '၁။ Chrome လိပ်စာဘေးရှိ မျှဝေရန် (Share) ကို နှိပ်ပါ။' : '၁။ မျှဝေရန် (Share) ကို နှိပ်ပါ။'}</Text>
+          <Text style={shared.muted}>၂။ ပင်မမျက်နှာပြင်သို့ ထည့်ရန် (Add to Home Screen) ကို ရွေးပါ။</Text>
+          <Text style={shared.muted}>၃။ ထည့်ရန် (Add) ကို နှိပ်ပါ။</Text>
         </View>
       )}
     </View>
@@ -192,15 +191,15 @@ const styles = StyleSheet.create({
   desktopPanel: { flexDirection: 'row' },
   brand: {
     paddingHorizontal: 22, minHeight: 144, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: 10, backgroundColor: '#E1EAD2',
+    gap: 10, backgroundColor: '#D7EBDF',
   },
   desktopBrand: {
     flex: 1, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between',
     paddingTop: 48, paddingHorizontal: 38, paddingBottom: 24,
   },
   compactBrand: { minHeight: 58, paddingHorizontal: 16 },
-  wordmark: { color: colors.primaryPressed, fontSize: 25, lineHeight: 30, fontWeight: '800', letterSpacing: -0.7, flexShrink: 1 },
-  desktopWordmark: { fontSize: 44, lineHeight: 48, letterSpacing: -1.6 },
+  wordmark: { color: colors.primaryPressed, fontSize: 22, lineHeight: 39, fontWeight: '700', flexShrink: 1 },
+  desktopWordmark: { fontSize: 34, lineHeight: 56 },
   mascot: { width: 148, height: 128, flexShrink: 1 },
   desktopMascot: { width: '100%', height: 240, alignSelf: 'center' },
   compactMascot: { width: 64, height: 52 },

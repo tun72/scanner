@@ -1,11 +1,11 @@
-import { PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ProductDetails, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
+import { burmeseVerdict, PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ProductDetails, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
 import { checkScanRequest } from './check-request.ts';
 import { aiUnavailable, productLookupUnavailable, productNotFound } from './errors.ts';
 import type { FoodJudge, JudgeFailure, JudgeResult, TokenUsage } from './food-judge.ts';
 import type { LookupFailure, ProductLookup } from './product-lookup.ts';
 import { applyVerdictRules, labelForTarget, type Verdict } from './verdict.ts';
 
-/** Shown with every verdict. English only in this slice. */
+/** Source notice, localized when formatting the verdict. */
 export const NOT_MEDICAL_ADVICE_NOTICE = "Food Scanner is a guide, not medical advice. If you're unsure, ask your doctor or dietitian.";
 
 type ScanKind = ScanRequest['kind'];
@@ -61,7 +61,7 @@ export function createAssessFood({ judge, products, now, requireFoodOnlyPhoto = 
     const { profile, locale } = request;
     if (request.kind === 'photo') return { judged: await judge.judgePhoto({ photoBase64: request.photo, profile, locale }) };
 
-    const lookup = await products.findProduct(request.barcode);
+    const lookup = await products.findProduct(request.barcode, locale);
     if (lookup.status === 'not-found') return { kind: 'not-found', scanKind: 'barcode', error: productNotFound() };
     if (lookup.status === 'unavailable') return { kind: 'unavailable', scanKind: 'barcode', error: productLookupUnavailable(), failure: lookup.failure };
     const judged = await judge.judgeProduct({ product: lookup.product, profile, locale });
@@ -104,6 +104,6 @@ export function createAssessFood({ judge, products, now, requireFoodOnlyPhoto = 
     // trigger would give the user a reason they cannot read, so it counts as a bad reply.
     const response = VerdictResponseSchema.safeParse(candidate);
     if (!response.success) return { kind: 'unavailable', scanKind, error: aiUnavailable(), failure: 'invalid-reply', usage: judged.usage };
-    return { kind: 'verdict', scanKind, response: response.data, usage: judged.usage };
+    return { kind: 'verdict', scanKind, response: check.request.locale.split('-')[0] === 'my' ? burmeseVerdict(response.data) : response.data, usage: judged.usage };
   };
 }

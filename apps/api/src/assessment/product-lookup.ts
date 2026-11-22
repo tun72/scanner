@@ -29,6 +29,6 @@ export type ProductLookupResult =
 /** The product database. Declared here so the use case does not depend on any provider. */
 export interface ProductLookup {
   /** Never throws for provider trouble: an unreachable database is a normal result. */
-  findProduct(barcode: string): Promise<ProductLookupResult>;
+  findProduct(barcode: string, locale?: string): Promise<ProductLookupResult>;
 }
 import type { ProductDetails } from '@food-scanner/contracts';

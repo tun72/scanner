@@ -14,7 +14,7 @@ export function createSoboPlayerDocument(runtime: string, wasm: string, animatio
   </style>
 </head>
 <body>
-  <canvas id="sobo" aria-label="Sobo waves hello."></canvas>
+  <canvas id="sobo" aria-label="ဆိုဘို လက်ပြနေသည်။"></canvas>
   <script>${script}</script>
   <script>
     const decode = (base64) => Uint8Array.from(atob(base64), (byte) => byte.charCodeAt(0)).buffer;

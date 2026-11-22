@@ -18,7 +18,7 @@ export const INSTALL_ID = '6f1c2d3e-4b5a-4c7d-8e9f-0a1b2c3d4e5f';
 export const SCAN_PHOTO_BASE64 = '/9j/4HNjYW4gcGhvdG8=';
 export const THUMBNAIL_BASE64 = '/9j/4HRodW1ibmFpbA==';
 
-export const NOTICE = "Food Scanner is a guide, not medical advice. If you're unsure, ask your doctor or dietitian.";
+export const NOTICE = "ဤရလဒ်သည် ယေဘုယျလမ်းညွှန်သာ ဖြစ်သည်။ ဆေးဘက်ဆိုင်ရာ အကြံဉာဏ်အတွက် ဆရာဝန် သို့မဟုတ် အာဟာရပညာရှင်နှင့် တိုင်ပင်ပါ။";
 
 export function draft(overrides: Partial<ProfileDraft> = {}): ProfileDraft {
   return { conditions: ['gerd'], notes: '', noticeAcceptedAt: ACCEPTED_AT, ...overrides };

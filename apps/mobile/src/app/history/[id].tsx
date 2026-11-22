@@ -60,9 +60,9 @@ function SavedVerdict({ id }: { id: string }) {
     }
   };
 
-  const confirmDeleteScan = () => confirmDelete('Delete this scan?',
-    activeSession() ? 'This deletes the verdict and photo from your account.' : 'This removes the saved verdict from this phone.',
-    'Delete scan', () => void deleteScan());
+  const confirmDeleteScan = () => confirmDelete('ဤမှတ်တမ်းကို ဖျက်မလား။',
+    activeSession() ? 'ရလဒ်နှင့် ဓာတ်ပုံကို သင့်အကောင့်မှ ဖျက်ပါမည်။' : 'ရလဒ်ကို ဤဖုန်းမှ ဖျက်ပါမည်။',
+    'မှတ်တမ်း ဖျက်ရန်', () => void deleteScan());
 
   const upload = async () => {
     setUploading(true);
@@ -78,19 +78,19 @@ function SavedVerdict({ id }: { id: string }) {
     }
   };
 
-  if (scan === 'loading') return <ActivityIndicator color={colors.primary} style={{ flex: 1 }} accessibilityLabel="Loading saved verdict" />;
+  if (scan === 'loading') return <ActivityIndicator color={colors.primary} style={{ flex: 1 }} accessibilityLabel="ရလဒ် ဖွင့်နေသည်" />;
 
   return (
     <GlassBackground>
       <ScrollView contentContainerStyle={[styles.page, { paddingTop: insets.top, paddingBottom: insets.bottom + 14 }]}>
         {scan === 'error' ? (
           <View style={styles.actions}>
-            <Text style={shared.body} accessibilityRole="alert">Couldn't load this saved verdict.</Text>
+            <Text style={shared.body} accessibilityRole="alert">ရလဒ်ကို ဖွင့်၍ မရပါ။</Text>
             <Pressable style={shared.button} accessibilityRole="button" onPress={() => setAttempt(current => current + 1)}>
-              <Text style={shared.buttonText}>Try again</Text>
+              <Text style={shared.buttonText}>ပြန်ကြိုးစားရန်</Text>
             </Pressable>
             <Pressable style={[shared.button, shared.buttonSecondary]} accessibilityRole="button" onPress={back}>
-              <Text style={[shared.buttonText, shared.buttonSecondaryText]}>Back to history</Text>
+              <Text style={[shared.buttonText, shared.buttonSecondaryText]}>မှတ်တမ်းသို့</Text>
             </Pressable>
           </View>
         ) : scan ? (
@@ -99,24 +99,24 @@ function SavedVerdict({ id }: { id: string }) {
               : savedPhoto} />
             <View style={styles.actions}>
               {scan.photoState === 'pending' && <>
-                <Text style={shared.muted}>{uploadFailed ? 'Couldn’t upload the photo. Try again.' : 'Photo upload pending.'}</Text>
+                <Text style={shared.muted}>{uploadFailed ? 'ဓာတ်ပုံတင်၍ မရပါ။ ပြန်ကြိုးစားပါ။' : 'ဓာတ်ပုံတင်ရန် စောင့်နေသည်။'}</Text>
                 {canRetryPhoto(id) && <Pressable style={[shared.button, shared.buttonSecondary]} accessibilityRole="button" disabled={uploading}
                   onPress={() => void upload()}>
-                  <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{uploading ? 'Uploading…' : 'Retry photo upload'}</Text>
+                  <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{uploading ? 'တင်နေသည်…' : 'ဓာတ်ပုံ ပြန်တင်ရန်'}</Text>
                 </Pressable>}
               </>}
               <Pressable style={[shared.button, shared.buttonSecondary, styles.deleteButton, deleting && shared.buttonDisabled]}
                 accessibilityRole="button" disabled={deleting} onPress={confirmDeleteScan}>
-                <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'Deleting…' : 'Delete scan'}</Text>
+                <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'ဖျက်နေသည်…' : 'မှတ်တမ်း ဖျက်ရန်'}</Text>
               </Pressable>
-              {deleteFailed && <Text style={shared.body} accessibilityRole="alert">Couldn't delete this scan. Try again.</Text>}
+              {deleteFailed && <Text style={shared.body} accessibilityRole="alert">ဖျက်၍ မရပါ။ ပြန်ကြိုးစားပါ။</Text>}
             </View>
           </>
         ) : (
           <View style={styles.actions}>
-            <Text style={shared.body}>This saved verdict is unavailable.</Text>
+            <Text style={shared.body}>ဤရလဒ်ကို မတွေ့ပါ။</Text>
             <Pressable style={shared.button} accessibilityRole="button" onPress={back}>
-              <Text style={shared.buttonText}>Back to history</Text>
+              <Text style={shared.buttonText}>မှတ်တမ်းသို့</Text>
             </Pressable>
           </View>
         )}
@@ -127,7 +127,7 @@ function SavedVerdict({ id }: { id: string }) {
 
 const styles = StyleSheet.create({
   page: { paddingBottom: 24 },
-  actions: { padding: 18, gap: 10 },
+  actions: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 18, gap: 10 },
   deleteButton: { borderColor: colors.problem },
   deleteText: { color: colors.problem },
 });

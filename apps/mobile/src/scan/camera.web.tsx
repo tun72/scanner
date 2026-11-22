@@ -2,10 +2,11 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { ScrollView, Text } from 'react-native';
 import { shared } from '../theme.ts';
 import { GlassBackground, GlassCard } from '../ui/glass.tsx';
+import { BarcodeCamera } from './barcode-camera.web.tsx';
 import { Button } from './scan-controls.tsx';
 import type { CapturedPhoto } from './scan-food.ts';
 
-export function Camera({ onPhoto, onBack }: { onPhoto(photo: CapturedPhoto): Promise<void>; onBack(): void }) {
+export function Camera({ onPhoto, onBack, mode, onBarcode }: { mode?: 'photo' | 'barcode' | undefined; onBarcode(value: string): void; onPhoto(photo: CapturedPhoto): Promise<void>; onBack(): void }) {
   const camera = useRef<HTMLInputElement>(null);
   const library = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState(false);
@@ -34,16 +35,15 @@ export function Camera({ onPhoto, onBack }: { onPhoto(photo: CapturedPhoto): Pro
   return (
     <GlassBackground>
       <ScrollView contentContainerStyle={shared.screen}>
-        <Button label="Back" onPress={onBack} secondary />
-        <GlassCard>
-          <Text style={shared.title} accessibilityRole="header">Photo scan</Text>
-          <Text style={shared.body}>Take a photo of your food or choose one from your library.</Text>
+        <Button label="နောက်သို့" onPress={onBack} secondary />
+        {mode === 'barcode' ? <BarcodeCamera onBarcode={onBarcode} /> : <GlassCard>
+          <Text style={shared.title} accessibilityRole="header">ဓာတ်ပုံဖြင့် စစ်ရန်</Text>
           <input hidden ref={camera} type="file" accept="image/*" capture="environment" onChange={selectPhoto} />
           <input hidden ref={library} type="file" accept="image/*" onChange={selectPhoto} />
-          <Button label={reading ? 'Opening photo…' : 'Take photo'} onPress={() => camera.current?.click()} disabled={reading} />
-          <Button label="Choose photo" onPress={() => library.current?.click()} disabled={reading} secondary />
-          {problem && <Text style={shared.body} accessibilityRole="alert">Couldn’t open this photo. Take a new one or choose a JPEG or PNG.</Text>}
-        </GlassCard>
+          <Button label={reading ? 'ဓာတ်ပုံ ဖွင့်နေသည်…' : 'ဓာတ်ပုံ ရိုက်ရန်'} onPress={() => camera.current?.click()} disabled={reading} />
+          <Button label="ဖုန်းထဲမှ ပုံရွေးရန်" onPress={() => library.current?.click()} disabled={reading} secondary />
+          {problem && <Text style={shared.body} accessibilityRole="alert">ဤပုံကို ဖွင့်၍ မရပါ။ ပုံအသစ်ရိုက်ပါ သို့မဟုတ် JPEG၊ PNG ပုံရွေးပါ။</Text>}
+        </GlassCard>}
       </ScrollView>
     </GlassBackground>
   );

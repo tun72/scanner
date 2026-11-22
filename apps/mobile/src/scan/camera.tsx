@@ -3,12 +3,13 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { shared } from '../theme.ts';
+import { ScanBeam } from '../ui/scan-beam.tsx';
 import { GlassIcon } from '../ui/glass.tsx';
 import { Button, styles } from './scan-controls.tsx';
 import type { CapturedPhoto } from './scan-food.ts';
 import { PRODUCT_BARCODE_TYPES, isProductBarcode } from './scan-request.ts';
 
-/** Step 3 of "Scan a food": one camera for both a photo and a product barcode. */
+/** Step 3 of "အစားအစာ စစ်ရန်": one camera for both a photo and a product barcode. */
 export function Camera({ onPhoto, onBarcode, mode, onBack }: {
   onPhoto: (photo: CapturedPhoto) => void; onBarcode: (barcode: string) => void;
   mode?: 'photo' | 'barcode' | undefined; onBack(): void;
@@ -25,17 +26,17 @@ export function Camera({ onPhoto, onBarcode, mode, onBack }: {
   if (!permission.granted) {
     return (
       <ScrollView contentContainerStyle={shared.screen}>
-        <Button label="Back" onPress={onBack} secondary />
+        <Button label="နောက်သို့" onPress={onBack} secondary />
         <View style={[shared.card, styles.callout]}>
-          <Text style={shared.title} accessibilityRole="header">Camera needed</Text>
-          <Text style={shared.body}>Food Scanner uses the camera to photograph your food and read product barcodes.</Text>
+          <Text style={shared.title} accessibilityRole="header">ကင်မရာ အသုံးပြုခွင့်</Text>
+          <Text style={shared.body}>အစားအစာပုံ ရိုက်ရန်နှင့် ဘားကုဒ်ဖတ်ရန် ကင်မရာ အသုံးပြုခွင့် ပေးပါ။</Text>
         </View>
         {permission.canAskAgain ? (
-          <Button label="Allow camera" onPress={() => void requestPermission()} />
+          <Button label="ကင်မရာ အသုံးပြုခွင့်ပေးရန်" onPress={() => void requestPermission()} />
         ) : (
           <>
-            <Text style={shared.body}>Allow camera access for Food Scanner in your phone's Settings.</Text>
-            <Button label="Open Settings" onPress={() => void Linking.openSettings()} />
+            <Text style={shared.body}>ဖုန်းဆက်တင်တွင် ကင်မရာ အသုံးပြုခွင့် ပေးပါ။</Text>
+            <Button label="ဆက်တင် ဖွင့်ရန်" onPress={() => void Linking.openSettings()} />
           </>
         )}
       </ScrollView>
@@ -51,7 +52,7 @@ export function Camera({ onPhoto, onBarcode, mode, onBack }: {
       onPhoto({ uri, width, height });
     } catch {
       started.current = false;
-      setProblem("We couldn't take that photo. Please try again.");
+      setProblem("ဓာတ်ပုံ ရိုက်၍ မရပါ။ ပြန်ကြိုးစားပါ။");
     }
   };
 
@@ -73,10 +74,11 @@ export function Camera({ onPhoto, onBarcode, mode, onBack }: {
       />
       <View style={[styles.overlay, { paddingBottom: insets.bottom + 17 }]} pointerEvents="box-none">
         <View style={{ marginTop: insets.top }}>
-          <GlassIcon label="Back" glyph="‹" onPress={onBack} />
+          <GlassIcon label="နောက်သို့" glyph="‹" onPress={onBack} />
         </View>
         <View style={styles.framing} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={styles.frame}>
+            {mode === 'barcode' && <ScanBeam />}
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
@@ -84,7 +86,7 @@ export function Camera({ onPhoto, onBarcode, mode, onBack }: {
           </View>
         </View>
         <View style={styles.cameraControls}>
-          <Text style={styles.hint}>{mode === 'barcode' ? 'Line up the barcode.' : mode === 'photo' ? 'Fit the food in the frame.' : 'Photograph the food or point at a barcode.'}</Text>
+          <Text style={styles.hint}>{mode === 'barcode' ? 'ဘားကုဒ်ကို ဘောင်အတွင်း ချိန်ပါ။' : mode === 'photo' ? 'အစားအစာကို ဘောင်အတွင်း ချိန်ပါ။' : 'အစားအစာပုံ ရိုက်ပါ သို့မဟုတ် ဘားကုဒ်ကို ချိန်ပါ။'}</Text>
           {problem !== null && <Text style={styles.hint} accessibilityRole="alert">{problem}</Text>}
           {mode !== 'barcode' && <Pressable
             style={[shared.button, !ready && shared.buttonDisabled]}
@@ -93,7 +95,7 @@ export function Camera({ onPhoto, onBarcode, mode, onBack }: {
             accessibilityRole="button"
             accessibilityState={{ disabled: !ready }}
           >
-            <Text style={shared.buttonText}>Take photo</Text>
+            <Text style={shared.buttonText}>ဓာတ်ပုံ ရိုက်ရန်</Text>
           </Pressable>}
         </View>
       </View>

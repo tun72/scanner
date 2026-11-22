@@ -33,8 +33,8 @@ describe('profile form', () => {
   });
 
   it('has a message the user can act on for every problem', () => {
-    expect(PROBLEM_MESSAGES['nothing-chosen']).toMatch(/condition.*note/);
-    expect(PROBLEM_MESSAGES['notice-not-accepted']).toMatch(/notice/);
-    expect(PROBLEM_MESSAGES['notes-too-long']).toMatch(/300/);
+    expect(PROBLEM_MESSAGES['nothing-chosen']).toMatch(/အခြေအနေ.*မှတ်စု/);
+    expect(PROBLEM_MESSAGES['notice-not-accepted']).toMatch(/အသိပေးချက်/);
+    expect(PROBLEM_MESSAGES['notes-too-long']).toMatch(/၃၀၀/);
   });
 });

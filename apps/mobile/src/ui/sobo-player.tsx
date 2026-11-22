@@ -72,7 +72,7 @@ export function SoboPlayer({ onPlayingChange }: { onPlayingChange: (playing: boo
       contentInsetAdjustmentBehavior="never"
       scrollEnabled={false}
       accessible={ready}
-      accessibilityLabel="Sobo waves hello."
+      accessibilityLabel="ဆိုဘို လက်ပြနေသည်။"
       pointerEvents="none"
       onError={showPoster}
       onContentProcessDidTerminate={showPoster}

@@ -4,7 +4,7 @@ import { createAssessFood } from '../src/assessment/assess-food.ts';
 import { buildServer } from '../src/http/server.ts';
 import { createGeminiFoodJudge } from '../src/infrastructure/gemini-food-judge.ts';
 import { loadConfig } from '../src/config.ts';
-import { FIXED_NOW, fakeProducts, photoScan } from './helpers.ts';
+import { FIXED_NOW, barcodeScan, fakeProducts, photoScan } from './helpers.ts';
 
 const response = (finishReason = 'STOP') => Response.json({
   candidates: [{ finishReason, content: { parts: [{ text: JSON.stringify({
@@ -60,6 +60,19 @@ describe('Gemini food-only mode', () => {
     } finally {
       await api.close();
     }
+  });
+
+  it('requests Burmese food identification and localizes the result without sharing the profile', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(response());
+    const assess = createAssessFood({ judge: createGeminiFoodJudge({ apiKey: 'fixture', fetcher }), products: fakeProducts(), now: () => FIXED_NOW });
+    const result = await assess({ ...barcodeScan(), locale: 'my-MM', profile: { conditions: ['lactose-intolerance'], notes: 'private test note' } });
+    expect(result).toMatchObject({ kind: 'verdict', response: {
+      reasons: [expect.objectContaining({ condition: 'နို့သကြား မချေဖျက်နိုင်ခြင်း' }), expect.objectContaining({ condition: 'သင့်မှတ်စု' })],
+      flaggedIngredients: ['နို့သကြားပါသော နို့ထွက်ပစ္စည်းများ', 'သင်နှင့် မတည့်သော အစားအစာများ'], notice: expect.stringMatching(/[က-အ]/),
+    } });
+    const body = String(fetcher.mock.calls[0]?.[1]?.body);
+    expect(body).toContain('natural Burmese');
+    expect(body).not.toContain('private test note');
   });
 
   it('sends public product facts and handles quota and safety errors without returning a verdict', async () => {

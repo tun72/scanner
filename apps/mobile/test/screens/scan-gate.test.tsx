@@ -17,19 +17,19 @@ describe('starting a scan', () => {
     resetFake(savedProfile());
     const router = await renderRouter(routes, { initialUrl: '/' });
 
-    await fireEvent.press(await screen.findByText('Scan a food'));
+    await fireEvent.press(await screen.findByText('အစားအစာ စစ်ရန်'));
 
     await screen.findByTestId('camera');
     expect(router.getPathname()).toBe('/scan');
     expect(camera.props?.barcodeScannerSettings?.barcodeTypes).toEqual(['ean13', 'ean8', 'upc_a', 'upc_e']);
-    expect(screen.getByText('Take photo')).toBeTruthy();
+    expect(screen.getByText('ဓာတ်ပုံ ရိုက်ရန်')).toBeTruthy();
   });
 
   it('TC5 scanning without a profile goes to setup and sends nothing', async () => {
     resetFake(null);
     const router = await renderRouter(routes, { initialUrl: '/scan' });
 
-    await screen.findByText('I understand');
+    await screen.findByText('နားလည်ပါပြီ');
     expect(router.getPathname()).toBe('/notice');
     expect(screen.queryByTestId('camera')).toBeNull();
     expect(sent()).toEqual([]);

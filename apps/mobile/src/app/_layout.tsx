@@ -42,7 +42,7 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, [session]);
 
-  if (session === undefined) return <ActivityIndicator accessibilityLabel="Opening Food Scanner" color={colors.primary} style={styles.loading} />;
+  if (session === undefined) return <ActivityIndicator accessibilityLabel="အက်ပ်ကို ဖွင့်နေသည်" color={colors.primary} style={styles.loading} />;
 
   return (
     <GlassSurfaceProvider>
@@ -58,11 +58,11 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
           </Stack.Protected>
           <Stack.Protected guard={session !== null}>
-            <Stack.Screen name="index" options={{ title: 'Food Scanner' }} />
-            <Stack.Screen name="notice" options={{ title: 'Before you start', headerBackVisible: false }} />
-            <Stack.Screen name="profile" options={{ title: 'Your profile' }} />
+            <Stack.Screen name="index" options={{ headerBackVisible: false, title: 'အစားအသောက်စစ်ဆေးရေး' }} />
+            <Stack.Screen name="notice" options={{ title: 'မစမီ သိထားရန်', headerBackVisible: false }} />
+            <Stack.Screen name="profile" options={{ title: 'ကျန်းမာရေးအချက်အလက်' }} />
             <Stack.Screen name="scan" options={{ headerShown: false }} />
-            <Stack.Screen name="history/index" options={{ title: 'History' }} />
+            <Stack.Screen name="history/index" options={{ title: 'မှတ်တမ်း' }} />
             <Stack.Screen name="history/[id]" options={{ headerShown: false }} />
           </Stack.Protected>
         </Stack>

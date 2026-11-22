@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, FlatList, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { historyIsOffline } from '../../account/history.ts';
 import { useScanPhoto } from '../../account/use-scan-photo';
 import { activeSession } from '../../account/session.ts';
@@ -47,9 +47,9 @@ export default function HistoryScreen() {
   }, [attempt, session]));
 
   const confirmImport = () => {
-    Alert.alert('Import your scans?', 'Only import scans from this phone that belong to you. Saved thumbnails will be included.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Import', onPress: () => void (async () => {
+    Alert.alert('ယခင်မှတ်တမ်းများ ထည့်မလား။', 'သင့်မှတ်တမ်းများကိုသာ ထည့်ပါ။ သိမ်းထားသည့် ပုံငယ်များလည်း ပါဝင်မည်။', [
+      { text: 'မလုပ်တော့ပါ', style: 'cancel' },
+      { text: 'ထည့်ရန်', onPress: () => void (async () => {
         setImporting(true);
         setImportFailed(false);
         try {
@@ -83,22 +83,22 @@ export default function HistoryScreen() {
     }
   };
 
-  const confirmDeleteAll = () => confirmDelete('Delete all scans?',
-    session ? 'This deletes all scans and photos from your account.' : 'This removes every saved scan from this phone.',
-    'Delete all', () => void deleteAll());
+  const confirmDeleteAll = () => confirmDelete('မှတ်တမ်းအားလုံး ဖျက်မလား။',
+    session ? 'ရလဒ်နှင့် ဓာတ်ပုံအားလုံးကို သင့်အကောင့်မှ ဖျက်ပါမည်။' : 'သိမ်းထားသော မှတ်တမ်းအားလုံးကို ဤဖုန်းမှ ဖျက်ပါမည်။',
+    'အားလုံး ဖျက်ရန်', () => void deleteAll());
 
   if (scans === 'error') {
     return (
       <View style={shared.screen}>
-        <Text style={shared.body} accessibilityRole="alert">Couldn't load your scan history.</Text>
+        <Text style={shared.body} accessibilityRole="alert">မှတ်တမ်းများ ဖွင့်၍ မရပါ။</Text>
         <Pressable style={shared.button} accessibilityRole="button" onPress={() => setAttempt((current) => current + 1)}>
-          <Text style={shared.buttonText}>Try again</Text>
+          <Text style={shared.buttonText}>ပြန်ကြိုးစားရန်</Text>
         </Pressable>
       </View>
     );
   }
 
-  if (scans === 'loading') return <ActivityIndicator color={colors.primary} style={shared.screen} accessibilityLabel="Loading scan history" />;
+  if (scans === 'loading') return <ActivityIndicator color={colors.primary} style={shared.screen} accessibilityLabel="မှတ်တမ်း ဖွင့်နေသည်" />;
 
   return (
     <GlassBackground>
@@ -110,27 +110,32 @@ export default function HistoryScreen() {
         onRefresh={() => setAttempt(value => value + 1)}
         ListEmptyComponent={(
           <View style={[shared.card, styles.empty]}>
-            <Text style={shared.heading} accessibilityRole="header">No saved scans yet.</Text>
-            <Text style={shared.body}>{Platform.OS === 'web' ? 'Your photo verdicts will appear here after you scan.' : 'Your photo and barcode verdicts will appear here after you scan.'}</Text>
+            <Text style={shared.heading} accessibilityRole="header">မှတ်တမ်း မရှိသေးပါ</Text>
+            <Pressable style={shared.button} accessibilityRole="button" onPress={() => router.push({ pathname: '/scan', params: { mode: 'photo' } })}><Text style={shared.buttonText}>ဓာတ်ပုံဖြင့် စစ်ရန်</Text></Pressable>
           </View>
         )}
         ListHeaderComponent={scans.length > 0 || canImport || offline ? (
           <View style={styles.actions}>
-            <Text style={shared.title} accessibilityRole="header">Past scans</Text>
-            {offline && <Text style={shared.muted}>Offline · Showing recent history</Text>}
+            <Text style={shared.title} accessibilityRole="header">စစ်ဆေးခဲ့သည့် အစားအစာများ</Text>
+            {offline && <Text style={shared.muted}>အင်တာနက် မရှိပါ။ နောက်ဆုံးမှတ်တမ်းများကို ပြထားသည်။</Text>}
             {canImport && <Pressable style={[shared.button, shared.buttonSecondary]} disabled={importing} accessibilityRole="button" onPress={confirmImport}>
-              <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{importing ? 'Importing…' : 'Import my local scans'}</Text>
+              <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{importing ? 'ထည့်နေသည်…' : 'ဤဖုန်းမှ မှတ်တမ်းများ ထည့်ရန်'}</Text>
             </Pressable>}
-            {importFailed && <Text style={shared.body} accessibilityRole="alert">Couldn’t import scans. Try again.</Text>}
-            {scans.length > 0 && <Pressable
+            {importFailed && <Text style={shared.body} accessibilityRole="alert">မှတ်တမ်း ထည့်၍ မရပါ။ ပြန်ကြိုးစားပါ။</Text>}
+
+          </View>
+        ) : undefined}
+        ListFooterComponent={scans.length > 0 ? (
+          <View style={[styles.actions, { marginTop: 18 }]}>
+            <Pressable
               style={[shared.button, shared.buttonSecondary, styles.deleteButton, deleting && shared.buttonDisabled]}
               accessibilityRole="button"
               disabled={deleting}
               onPress={confirmDeleteAll}
             >
-              <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'Deleting…' : 'Delete all scans'}</Text>
-            </Pressable>}
-            {deleteFailed && <Text style={shared.body} accessibilityRole="alert">Couldn't delete your scan history. Try again.</Text>}
+              <Text style={[shared.buttonText, styles.deleteText]}>{deleting ? 'ဖျက်နေသည်…' : 'မှတ်တမ်းအားလုံး ဖျက်ရန်'}</Text>
+            </Pressable>
+            {deleteFailed && <Text style={shared.body} accessibilityRole="alert">မှတ်တမ်းများ ဖျက်၍ မရပါ။ ပြန်ကြိုးစားပါ။</Text>}
           </View>
         ) : undefined}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -147,7 +152,7 @@ export default function HistoryScreen() {
               <View style={styles.summary}>
                 <Text style={styles.foodName}>{item.foodName}</Text>
                 <Text style={[styles.level, { color: look.colour }]}>{look.badge}</Text>
-                <Text style={shared.muted}>{new Date(item.scannedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+                <Text style={shared.muted}>{new Date(item.scannedAt).toLocaleString('my-MM', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
               </View>
               <Text style={styles.chevron} importantForAccessibility="no" accessibilityElementsHidden>›</Text>
             </Pressable>

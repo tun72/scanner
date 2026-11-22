@@ -12,8 +12,8 @@ jest.mock('expo-camera', () => jest.requireActual('./fake-camera.tsx'));
 
 const BARCODE = '3017620422003';
 const refused = (error: AssessmentError): ScanResult => ({ kind: 'failed', failure: { reason: 'refused', error } });
-const AI_UNAVAILABLE = refused({ code: 'ai-unavailable', message: "We can't check foods right now. Please try again in a moment." });
-const NOT_FOUND = refused({ code: 'product-not-found', message: "We couldn't find that product. Please take a photo of it instead." });
+const AI_UNAVAILABLE = refused({ code: 'ai-unavailable', message: "လောလောဆယ် စစ်ဆေး၍ မရပါ။ ခဏနေ ပြန်ကြိုးစားပါ။" });
+const NOT_FOUND = refused({ code: 'product-not-found', message: "ဤပစ္စည်းကို ရှာမတွေ့ပါ။ ဓာတ်ပုံရိုက်ပြီး စစ်ပါ။" });
 
 /** Opens the scan screen with a saved profile and the API answers queued. */
 async function openScan(...replies: ScanResult[]) {
@@ -23,11 +23,11 @@ async function openScan(...replies: ScanResult[]) {
 }
 
 const scanBarcode = (barcode = BARCODE) => act(async () => readBarcode(barcode));
-const takePhoto = async () => fireEvent.press(screen.getByText('Take photo'));
+const takePhoto = async () => fireEvent.press(screen.getByText('ဓာတ်ပုံ ရိုက်ရန်'));
 
 const VERDICTS: Record<VerdictLevel, ScanResult> = {
   safe: { kind: 'verdict', verdict: verdict({ level: 'safe', foodName: 'Plain rice', reasons: [], flaggedIngredients: [], tip: 'A gentle choice.' }) },
-  caution: { kind: 'verdict', verdict: verdict({ level: 'caution', reasons: [{ condition: 'Gastritis', severity: 'caution', explanation: 'Spice can irritate.' }] }) },
+  caution: { kind: 'verdict', verdict: verdict({ level: 'caution', reasons: [{ condition: 'အစာအိမ်ရောင်ခြင်း', severity: 'caution', explanation: 'Spice can irritate.' }] }) },
   avoid: { kind: 'verdict', verdict: verdict() },
   unsure: { kind: 'verdict', verdict: verdict({ level: 'unsure', foodName: 'Unclear photo', reasons: [], flaggedIngredients: [], retakeHint: 'Take it closer.' }) },
 };
@@ -37,19 +37,19 @@ describe('the scan screen', () => {
     resetFake(null, [VERDICTS.avoid]);
     const app = await renderRouter(routes);
 
-    await fireEvent.press(await screen.findByText('I understand'));
-    await fireEvent.press(await screen.findByText('Gastritis'));
-    await fireEvent.press(screen.getByText('Save profile'));
-    await fireEvent.press(await screen.findByText('Scan a food'));
+    await fireEvent.press(await screen.findByText('နားလည်ပါပြီ'));
+    await fireEvent.press(await screen.findByText('အစာအိမ်ရောင်ခြင်း'));
+    await fireEvent.press(screen.getByText('အချက်အလက် သိမ်းရန်'));
+    await fireEvent.press(await screen.findByText('အစားအစာ စစ်ရန်'));
     await screen.findByTestId('camera');
     await takePhoto();
-    await screen.findByText('Saved to your history.');
+    await screen.findByText('မှတ်တမ်းတွင် သိမ်းပြီးပါပြီ။');
     await app.unmount();
 
     await renderRouter(routes);
-    await fireEvent.press(await screen.findByRole('button', { name: 'History' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'မှတ်တမ်း' }));
     await fireEvent.press(await screen.findByText('Spicy noodle soup'));
-    await fireEvent.press(await screen.findByRole('button', { name: 'Scan info' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
     expect(await screen.findByText(NOTICE)).toBeTruthy();
     expect(sent()).toHaveLength(1);
   });
@@ -60,7 +60,7 @@ describe('the scan screen', () => {
     await scanBarcode();
 
     expect(screen.getByTestId('verdict-badge')).toBeTruthy();
-    await fireEvent.press(await screen.findByRole('button', { name: 'Scan info' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
     expect(await screen.findByText(NOTICE)).toBeTruthy();
   });
 
@@ -69,8 +69,8 @@ describe('the scan screen', () => {
 
     await takePhoto();
 
-    expect(await screen.findByText("We can't check foods right now. Please try again in a moment.")).toBeTruthy();
-    expect(screen.getByText('Try again')).toBeTruthy();
+    expect(await screen.findByText("လောလောဆယ် စစ်ဆေး၍ မရပါ။ ခဏနေ ပြန်ကြိုးစားပါ။")).toBeTruthy();
+    expect(screen.getByText('ပြန်ကြိုးစားရန်')).toBeTruthy();
     expect(screen.queryByTestId('verdict-badge')).toBeNull();
     expect(fake.history.saved).toEqual([]);
   });
@@ -80,10 +80,10 @@ describe('the scan screen', () => {
 
     await scanBarcode();
 
-    expect(await screen.findByText("We couldn't find that product. Please take a photo of it instead.")).toBeTruthy();
+    expect(await screen.findByText("ဤပစ္စည်းကို ရှာမတွေ့ပါ။ ဓာတ်ပုံရိုက်ပြီး စစ်ပါ။")).toBeTruthy();
     expect(screen.queryByTestId('verdict-badge')).toBeNull();
     expect(fake.history.saved).toEqual([]);
-    await fireEvent.press(screen.getByText('Take a photo'));
+    await fireEvent.press(screen.getByText('ဓာတ်ပုံဖြင့် စစ်ရန်'));
     expect(await screen.findByTestId('camera')).toBeTruthy();
   });
 
@@ -91,9 +91,9 @@ describe('the scan screen', () => {
     await openScan({ kind: 'failed', failure: { reason: 'unreachable' } }, VERDICTS.avoid);
 
     await takePhoto();
-    await fireEvent.press(await screen.findByText('Try again'));
+    await fireEvent.press(await screen.findByText('ပြန်ကြိုးစားရန်'));
 
-    expect(await screen.findByText('Saved to your history.')).toBeTruthy();
+    expect(await screen.findByText('မှတ်တမ်းတွင် သိမ်းပြီးပါပြီ။')).toBeTruthy();
     expect(sent()).toHaveLength(2);
     expect(sent()[1]).toEqual(sent()[0]);
     expect(sent()[0]?.kind).toBe('photo');
@@ -105,19 +105,19 @@ describe('the scan screen', () => {
 
     await scanBarcode();
 
-    expect(await screen.findByText('Saved to your history.')).toBeTruthy();
+    expect(await screen.findByText('မှတ်တမ်းတွင် သိမ်းပြီးပါပြီ။')).toBeTruthy();
     expect(sent()[0]).toMatchObject({ kind: 'barcode', barcode: BARCODE });
     expect(fake.history.saved[0]?.thumbnail).toBeNull();
   });
 
   it('says how long to wait over the scan limit and offers no retry', async () => {
-    await openScan(refused({ code: 'rate-limited', message: "You've scanned a lot in the last hour. Please try again later.", retryAfterSeconds: 1200 }));
+    await openScan(refused({ code: 'rate-limited', message: "ယခုနာရီအတွက် စစ်ဆေးနိုင်သည့် အကြိမ်ရေ ပြည့်သွားပါပြီ။", retryAfterSeconds: 1200 }));
 
     await scanBarcode();
 
-    expect(await screen.findByText("You've scanned a lot in the last hour. Please try again later. You can scan again in about 20 minutes.")).toBeTruthy();
-    expect(screen.getByText('Back home')).toBeTruthy();
-    expect(screen.queryByText('Try again')).toBeNull();
+    expect(await screen.findByText("ယခုနာရီအတွက် စစ်ဆေးနိုင်သည့် အကြိမ်ရေ ပြည့်သွားပါပြီ။ ၂၀ မိနစ်ခန့်အကြာ ပြန်စစ်ပါ။")).toBeTruthy();
+    expect(screen.getByText('ပင်မစာမျက်နှာသို့')).toBeTruthy();
+    expect(screen.queryByText('ပြန်ကြိုးစားရန်')).toBeNull();
   });
 
   it('ignores a code that is not a product barcode and keeps looking', async () => {

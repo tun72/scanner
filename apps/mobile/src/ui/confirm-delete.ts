@@ -6,7 +6,7 @@ export function confirmDelete(title: string, message: string, label: string, rem
     return;
   }
   Alert.alert(title, message, [
-    { text: 'Cancel', style: 'cancel' },
+    { text: 'မလုပ်တော့ပါ', style: 'cancel' },
     { text: label, style: 'destructive', onPress: remove },
   ]);
 }

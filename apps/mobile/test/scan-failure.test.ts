@@ -6,29 +6,29 @@ const refused = (error: AssessmentError) => ({ reason: 'refused' as const, error
 
 describe('what a failed scan shows', () => {
   it('asks for a photo when the product is unknown', () => {
-    const message = "We couldn't find that product. Please take a photo of it instead.";
+    const message = "ဤပစ္စည်းကို ရှာမတွေ့ပါ။ ဓာတ်ပုံရိုက်ပြီး စစ်ပါ။";
     expect(describeFailure(refused({ code: 'product-not-found', message }), 'barcode')).toEqual({ message, actions: ['take-photo'] });
   });
 
   it('offers to try again when the AI is unavailable, and a photo instead for a barcode', () => {
-    const message = "We can't check foods right now. Please try again in a moment.";
+    const message = "လောလောဆယ် စစ်ဆေး၍ မရပါ။ ခဏနေ ပြန်ကြိုးစားပါ။";
     expect(describeFailure(refused({ code: 'ai-unavailable', message }), 'photo')).toEqual({ message, actions: ['retry'] });
     expect(describeFailure(refused({ code: 'ai-unavailable', message }), 'barcode')).toEqual({ message, actions: ['retry', 'take-photo'] });
   });
 
   it.each([
-    [1200, ' You can scan again in about 20 minutes.'],
-    [61, ' You can scan again in about 2 minutes.'],
-    [30, ' You can scan again in about 1 minute.'],
+    [1200, ' ၂၀ မိနစ်ခန့်အကြာ ပြန်စစ်ပါ။'],
+    [61, ' ၂ မိနစ်ခန့်အကြာ ပြန်စစ်ပါ။'],
+    [30, ' ၁ မိနစ်ခန့်အကြာ ပြန်စစ်ပါ။'],
     [undefined, ''],
   ])('says how long to wait over the scan limit (%s seconds) and offers no retry', (retryAfterSeconds, wait) => {
-    const message = "You've scanned a lot in the last hour. Please try again later.";
+    const message = "ယခုနာရီအတွက် စစ်ဆေးနိုင်သည့် အကြိမ်ရေ ပြည့်သွားပါပြီ။";
     const error: AssessmentError = { code: 'rate-limited', message, ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) };
     expect(describeFailure(refused(error), 'photo')).toEqual({ message: message + wait, actions: ['home'] });
   });
 
   it('asks to scan again when the API could not read the scan', () => {
-    const message = "We couldn't read that scan. Please try again.";
+    const message = "ဖတ်၍ မရပါ။ ပြန်စစ်ပါ။";
     expect(describeFailure(refused({ code: 'invalid-request', message }), 'photo')).toEqual({ message, actions: ['scan-again'] });
   });
 

@@ -13,7 +13,8 @@ import { Camera } from '../scan/camera';
 import { Button, styles } from '../scan/scan-controls.tsx';
 import type { Scanner } from '../scan/scan-request.ts';
 import { keepVerdict, loadInstallId, profileStore, scanFood } from '../services.ts';
-import { colors, shared } from '../theme.ts';
+import { shared } from '../theme.ts';
+import { ScanBeam } from '../ui/scan-beam.tsx';
 import { GlassBackground, GlassCard, GlassIcon } from '../ui/glass.tsx';
 
 /** Scan a food: needs a saved profile, then photo or barcode, then the verdict or an error. */
@@ -35,7 +36,7 @@ export default function ScanScreen() {
   }, []);
 
   if (scanner === undefined) return <ActivityIndicator style={styles.loading} />;
-  // Steps 1 and 2 of "Scan a food": without a profile there is nothing to judge against, so set one up first.
+  // Steps 1 and 2 of "အစားအစာ စစ်ရန်": without a profile there is nothing to judge against, so set one up first.
   if (scanner === null) return <Redirect href="/notice" />;
   return <Scanning scanner={scanner} initialMode={mode} />;
 }
@@ -145,12 +146,12 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
         <GlassBackground>
           <ScrollView contentContainerStyle={[shared.screen, { paddingTop: insets.top + 16 }]}>
             <GlassCard>
-              <Text style={shared.title} accessibilityRole="header">Check your photo</Text>
-              <Text style={shared.body}>Google Gemini identifies the food in this photo. Use a photo that shows only food, with no people, addresses, or other personal details.</Text>
-              <Image source={{ uri: `data:image/jpeg;base64,${request.photo}` }} style={{ width: '100%', height: 220 }} resizeMode="contain" accessibilityLabel="Photo to scan" />
+              <Text style={shared.title} accessibilityRole="header">ဓာတ်ပုံ အတည်ပြုရန်</Text>
+              <Text style={shared.body}>အစားအစာကို ခွဲခြားရန် ဤပုံကို Google Gemini သို့ ပို့မည်။ လူ၊ လိပ်စာနှင့် ကိုယ်ရေးအချက်အလက်များ မပါကြောင်း စစ်ပါ။</Text>
+              <Image source={{ uri: `data:image/jpeg;base64,${request.photo}` }} style={{ width: '100%', height: 220 }} resizeMode="contain" accessibilityLabel="စစ်ဆေးမည့် ဓာတ်ပုံ" />
             </GlassCard>
-            <Button label="Confirm food-only photo and scan" onPress={() => void send({ ...scan, request })} />
-            <Button label="Choose a different photo" onPress={backToCamera} secondary />
+            <Button label="အစားအစာပုံသာ ဖြစ်ကြောင်း အတည်ပြုပြီး စစ်ရန်" onPress={() => void send({ ...scan, request })} />
+            <Button label="အခြားပုံ ရွေးရန်" onPress={backToCamera} secondary />
           </ScrollView>
         </GlassBackground>
       );
@@ -165,16 +166,16 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
             <VerdictCard verdict={phase.verdict} photo={phase.photo ? { uri: `data:image/jpeg;base64,${phase.photo}` } : undefined} onBack={done} />
             <View style={styles.resultActions}>
               <Text style={shared.muted}>
-                {phase.saved === 'saving' ? 'Saving to your history…' : phase.saved === 'saved' ? 'Saved to your history.' : "Couldn't save this scan to your history."}
+                {phase.saved === 'saving' ? 'မှတ်တမ်းတွင် သိမ်းနေသည်…' : phase.saved === 'saved' ? 'မှတ်တမ်းတွင် သိမ်းပြီးပါပြီ။' : "ဤရလဒ်ကို သိမ်း၍ မရပါ။"}
               </Text>
               {phase.cloud?.photoState === 'pending' && <>
-                <Text style={shared.muted} accessibilityRole="alert">{retryFailed ? 'Couldn’t upload the photo. Try again.' : 'Photo upload pending.'}</Text>
-                <Button label={retrying ? 'Uploading…' : 'Retry photo upload'} disabled={retrying} onPress={() => {
+                <Text style={shared.muted} accessibilityRole="alert">{retryFailed ? 'ဓာတ်ပုံတင်၍ မရပါ။ ပြန်ကြိုးစားပါ။' : 'ဓာတ်ပုံတင်ရန် စောင့်နေသည်။'}</Text>
+                <Button label={retrying ? 'တင်နေသည်…' : 'ဓာတ်ပုံ ပြန်တင်ရန်'} disabled={retrying} onPress={() => {
                   if (phase.cloud) void retryPhoto(phase.cloud.id, phase.photo);
                 }} secondary />
               </>}
-              <Button label="Scan another" onPress={backToCamera} />
-              <Button label="Done" onPress={done} secondary />
+              <Button label="ထပ်မံ စစ်ဆေးရန်" onPress={backToCamera} />
+              <Button label="ပြီးပါပြီ" onPress={done} secondary />
             </View>
           </ScrollView>
         </GlassBackground>
@@ -194,7 +195,7 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
         <GlassBackground>
           <ScrollView contentContainerStyle={[shared.screen, { paddingTop: insets.top + 16 }]}>
             <View style={[shared.card, styles.callout]}>
-              <Text style={shared.title} accessibilityRole="header">No verdict</Text>
+              <Text style={shared.title} accessibilityRole="header">ရလဒ် မရသေးပါ</Text>
               <Text style={shared.body} accessibilityRole="alert">{message}</Text>
             </View>
             {actions.map((action, index) => (
@@ -209,21 +210,19 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
 
 function Checking({ request, onBack }: { request: ScanRequest | null; onBack(): void }) {
   const insets = useSafeAreaInsets();
-  const photo = request?.kind === 'photo' ? request.photo : null;
+  const uri = request?.kind === 'photo' ? `data:image/jpeg;base64,${request.photo}` : undefined;
   return (
     <GlassBackground>
-      {photo && <>
-        <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.analysisTint]} />
-      </>}
-      <View style={[styles.analysis, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
-        <GlassIcon label="Back" glyph="‹" onPress={onBack} />
-        {photo && <View pointerEvents="none" style={styles.framing}>
-          <View style={[styles.frame, styles.analysisFrame]} />
-        </View>}
+      <View style={[shared.screen, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        <GlassIcon label="နောက်သို့" glyph="‹" onPress={onBack} />
         <GlassCard style={styles.progress}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="Scan in progress" />
-          <Text style={shared.heading} accessibilityRole="header">{request?.kind === 'barcode' ? 'Checking barcode' : 'Analyzing food'}</Text>
+          <View style={styles.stage}>
+            {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+            <ScanBeam />
+          </View>
+          <Text style={shared.heading} accessibilityRole="header" accessibilityLiveRegion="polite">
+            {!request ? 'ဓာတ်ပုံ ပြင်ဆင်နေသည်' : request.kind === 'barcode' ? 'ကုန်ပစ္စည်း ရှာဖွေနေသည်' : 'အစားအစာ စစ်ဆေးနေသည်'}
+          </Text>
         </GlassCard>
       </View>
     </GlassBackground>
