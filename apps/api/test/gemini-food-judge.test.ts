@@ -18,7 +18,7 @@ const response = (finishReason = 'STOP', facts = {}) => Response.json({
 
 describe('Gemini food-only mode', () => {
   it('selects Gemini explicitly and requires its own key', () => {
-    expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture' })).toMatchObject({ geminiApiKey: 'fixture', geminiModel: 'gemini-3.8-flash' });
+    expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture' })).toMatchObject({ geminiApiKey: 'fixture', geminiModel: 'gemini-3.5-flash-lite' });
     expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture', GEMINI_MODEL: ' gemini-3.6-flash ' }).geminiModel).toBe('gemini-3.6-flash');
     expect(() => loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', ANTHROPIC_API_KEY: 'old-provider' })).toThrow('GEMINI_API_KEY is not set.');
   });
@@ -53,7 +53,7 @@ describe('Gemini food-only mode', () => {
       const [url, options] = fetcher.mock.calls[0]!;
       expect(fetcher.mock.calls[1]![1]?.body).toBe(options?.body);
       expect(fetcher.mock.calls[1]![1]?.signal).not.toBe(options?.signal);
-      expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
+      expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
       expect(options?.headers).toMatchObject({ 'x-goog-api-key': 'fixture' });
       const body = String(options?.body);
       expect(JSON.parse(body).systemInstruction.parts[0].text).toContain('Acid reflux (GERD), Gastritis, Stomach or duodenal ulcer');
