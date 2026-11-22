@@ -43,7 +43,7 @@ export default function LoginScreen() {
 
   const submit = async () => {
     if (disabled) return;
-    dismissKeyboard();
+    Keyboard.dismiss();
     setError(undefined);
     setSubmitting(true);
     try {
