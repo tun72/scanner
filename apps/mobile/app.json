@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Food Scanner",
+    "name": "အစားအသောက်စစ်ဆေးရေး",
     "slug": "food-scanner",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -19,6 +19,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "output": "single",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
@@ -28,7 +29,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Food Scanner uses the camera to photograph your food and read product barcodes.",
+          "cameraPermission": "အစားအစာပုံ ရိုက်ရန်နှင့် ဘားကုဒ်ဖတ်ရန် ကင်မရာ အသုံးပြုခွင့် ပေးပါ။",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }

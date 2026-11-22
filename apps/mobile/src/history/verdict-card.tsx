@@ -1,81 +1,86 @@
-import type { VerdictResponse } from '@food-scanner/contracts';
+import { burmeseVerdict, type VerdictResponse } from '@food-scanner/contracts';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, shared } from '../theme.ts';
 import { GlassCard, GlassIcon } from '../ui/glass.tsx';
+import { useMotionAllowed } from '../ui/use-motion.ts';
 import { VERDICT_LOOKS } from './verdict-look.ts';
 
 type Range = { min: number; max: number };
-const number = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(1);
+const number = (value: number) => value.toLocaleString('my-MM', { maximumFractionDigits: 1 });
 const rangeText = ({ min, max }: Range, unit: string) => `${number(min)}${min === max ? '' : '–' + number(max)} ${unit}`;
 
-export function VerdictCard({ verdict, photo, onBack }: {
+export function VerdictCard({ verdict: savedVerdict, photo, onBack }: {
   verdict: VerdictResponse;
   photo?: ImageSourcePropType | undefined;
   onBack?: () => void;
 }) {
   const [sheet, setSheet] = useState<'scan' | 'calories' | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
+  const verdict = burmeseVerdict(savedVerdict);
+  const motion = useMotionAllowed();
   const look = VERDICT_LOOKS[verdict.level];
   const advice = verdict.level === 'unsure' ? verdict.retakeHint : verdict.tip;
   const photoDetails = verdict.details?.kind === 'photo' ? verdict.details : undefined;
   const product = verdict.details?.kind === 'product' ? verdict.details.product : undefined;
   const estimated = photoDetails?.photo;
-  const reported = product?.nutrition;
-  const energy = estimated?.calories ? rangeText(estimated.calories, 'kcal')
-    : reported?.calories === undefined ? undefined : `${number(reported.calories)} kcal`;
-  const serving = estimated?.portionGrams ? `About ${number(estimated.portionGrams)} g` : reported?.quantity;
-  const ingredients = estimated?.ingredients?.map(item => ({ name: item.name, label: item.evidence === 'seen' ? 'Seen' : 'Possible' }))
-    ?? product?.ingredients?.map(name => ({ name, label: 'Listed' })) ?? [];
+  const nutritionFacts = product?.nutrition;
+  const reported = nutritionFacts && { ...nutritionFacts, quantity: nutritionFacts.quantity
+    .replace('per 100 mL', '၁၀၀ မီလီလီတာလျှင်').replace('per 100 g', '၁၀၀ ဂရမ်လျှင်').replace('per serving · ', 'တစ်ပွဲလျှင် · ') };
+  const energy = estimated?.calories ? rangeText(estimated.calories, 'ကီလိုကယ်လိုရီ')
+    : reported?.calories === undefined ? undefined : `${number(reported.calories)} ကီလိုကယ်လိုရီ`;
+  const serving = estimated?.portionGrams ? `${number(estimated.portionGrams)} ဂရမ်ခန့်` : reported?.quantity;
+  const ingredients = estimated?.ingredients?.map(item => ({ name: item.name, label: item.evidence === 'seen' ? 'ပုံတွင် မြင်ရ' : 'ပါဝင်နိုင်' }))
+    ?? product?.ingredients?.map(name => ({ name, label: 'အညွှန်းတွင် ပါ' })) ?? [];
   const nutrition = (['protein', 'fat', 'carbs'] as const).flatMap(key => {
     const estimate = estimated?.[key];
     const amount = reported?.[key];
-    return estimate ? [{ key, value: rangeText(estimate, 'g') }]
-      : amount === undefined ? [] : [{ key, value: `${number(amount)} g` }];
+    return estimate ? [{ key, value: rangeText(estimate, 'ဂရမ်') }]
+      : amount === undefined ? [] : [{ key, value: `${number(amount)} ဂရမ်` }];
   });
   const flagged = verdict.flaggedIngredients;
   const allergen = product?.allergens?.some(name => flagged.some(flag => flag.toLowerCase() === name.toLowerCase()));
   const info = () => setSheet('scan');
 
   return (
-    <View>
+    <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center' }}>
       {photo && !imageFailed && (
         <View style={styles.hero}>
-          <Image source={photo} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityLabel="Scanned food photo" onError={() => setImageFailed(true)} />
-          {onBack && <View style={styles.back}><GlassIcon label="Back" glyph="‹" onPress={onBack} /></View>}
+          <Image source={photo} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityLabel="စစ်ဆေးထားသော အစားအစာပုံ" onError={() => setImageFailed(true)} />
+          {onBack && <View style={styles.back}><GlassIcon label="နောက်သို့" glyph="‹" onPress={onBack} /></View>}
         </View>
       )}
       {onBack && (!photo || imageFailed) && <View style={styles.compactHeader}>
-        <GlassIcon label="Back" glyph="‹" onPress={onBack} />
-        <Text style={shared.muted}>Scan result</Text>
+        <GlassIcon label="နောက်သို့" glyph="‹" onPress={onBack} />
+        <Text style={shared.muted}>စစ်ဆေးချက်</Text>
       </View>}
       <View style={styles.body}>
         <View style={styles.titleLine}>
           <Text style={[shared.title, styles.title]} accessibilityRole="header">{verdict.foodName}</Text>
           {energy ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={`${estimated ? 'Estimated ' : ''}${energy}. Show details`}
+            <Pressable accessibilityRole="button" accessibilityLabel={`${estimated ? 'ခန့်မှန်း ' : ''}${energy} · အသေးစိတ်`}
               onPress={() => setSheet('calories')} style={styles.energy}>
               <Text style={styles.energyText}>{energy}</Text>
               {reported && <Text style={styles.energyText}>{reported.quantity}</Text>}
             </Pressable>
-          ) : <Text style={shared.muted}>Calories unavailable</Text>}
+          ) : <Text style={shared.muted}>ကယ်လိုရီ မသိရသေးပါ</Text>}
         </View>
 
         {(serving || photoDetails) && (
           <View style={styles.stats}>
-            {serving && <GlassCard style={styles.stat}><Text style={shared.muted}>Portion</Text><Text style={styles.amount}>{serving}</Text></GlassCard>}
-            {photoDetails && <GlassCard style={styles.stat}><Text style={shared.muted}>Food ID confidence</Text><Text style={styles.amount}>{photoDetails.confidence[0]?.toUpperCase()}{photoDetails.confidence.slice(1)}</Text></GlassCard>}
+            {serving && <GlassCard style={styles.stat}><Text style={shared.muted}>ပမာဏ</Text><Text style={styles.amount}>{serving}</Text></GlassCard>}
+            {photoDetails && <GlassCard style={styles.stat}><Text style={shared.muted}>အစားအစာ ခွဲခြားနိုင်မှု</Text><Text style={styles.amount}>{({ low: 'နိမ့်', medium: 'အသင့်အတင့်', high: 'မြင့်' })[photoDetails.confidence]}</Text></GlassCard>}
           </View>
         )}
 
         <GlassCard>
           <View style={styles.headingRow}>
             <Text testID="verdict-badge" style={[shared.heading, styles.title, { color: look.colour }]} accessibilityRole="header">{look.badge}</Text>
-            <GlassIcon label="Scan info" glyph="ⓘ" onPress={info} />
+            <GlassIcon label="စစ်ဆေးချက် အသေးစိတ်" glyph="ⓘ" onPress={info} />
           </View>
           {flagged.length > 0 && <>
-            <Text style={shared.heading}>{allergen ? 'Allergen Caution' : 'Dietary Caution'}</Text>
+            <Text style={shared.heading}>{allergen ? 'ဓာတ်မတည့်မှု သတိပြုရန်' : 'စားသုံးရာတွင် သတိပြုရန်'}</Text>
             <View style={styles.tags}>
               {flagged.map(name => <Text key={name} style={styles.tag}>{name}</Text>)}
             </View>
@@ -83,13 +88,13 @@ export function VerdictCard({ verdict, photo, onBack }: {
           {verdict.level === 'unsure' && advice && <Text style={shared.body}>{advice}</Text>}
         </GlassCard>
 
-        {ingredients.length > 0 && (
+        {(product?.ingredientStatement || ingredients.length > 0) && (
           <GlassCard>
-            <Text style={shared.heading}>Ingredients</Text>
-            {ingredients.map((ingredient, index) => (
+            <Text style={shared.heading}>ပါဝင်ပစ္စည်းများ</Text>
+            {product?.ingredientStatement ? <Text style={shared.body}>{product.ingredientStatement}</Text> : ingredients.map((ingredient, index) => (
               <View key={`${ingredient.name}-${index}`} style={styles.row}>
                 <Text style={shared.body}>{ingredient.name}</Text>
-                <Text style={[styles.tag, ingredient.label !== 'Possible' && styles.source]}>{ingredient.label}</Text>
+                <Text style={[styles.tag, ingredient.label !== 'ပါဝင်နိုင်' && styles.source]}>{ingredient.label}</Text>
               </View>
             ))}
           </GlassCard>
@@ -97,24 +102,24 @@ export function VerdictCard({ verdict, photo, onBack }: {
 
         {(nutrition.length > 0 || estimated?.calories) && (
           <GlassCard>
-            <Text style={shared.heading}>{estimated ? 'Nutrition estimate' : 'Nutrition'}</Text>
+            <Text style={shared.heading}>{estimated ? 'အာဟာရ ခန့်မှန်းချက်' : 'အာဟာရ တန်ဖိုး'}</Text>
             {reported && <Text style={shared.muted}>{reported.quantity}</Text>}
-            {estimated?.calories && <View accessibilityLabel={`Estimated ${energy}`}>
+            {estimated?.calories && <View accessibilityLabel={`ခန့်မှန်း ${energy}`}>
               <View style={styles.range} />
-              <View style={styles.row}><Text style={shared.muted}>{number(estimated.calories.min)} kcal</Text><Text style={shared.muted}>{number(estimated.calories.max)} kcal</Text></View>
+              <View style={styles.row}><Text style={shared.muted}>{number(estimated.calories.min)} ကီလိုကယ်လိုရီ</Text><Text style={shared.muted}>{number(estimated.calories.max)} ကီလိုကယ်လိုရီ</Text></View>
             </View>}
             {nutrition.map(row => <View key={row.key} style={styles.row}>
-              <Text style={shared.body}>{row.key[0]?.toUpperCase()}{row.key.slice(1)}</Text><Text style={styles.amount}>{row.value}</Text>
+              <Text style={shared.body}>{({ protein: 'ပရိုတင်း', fat: 'အဆီ', carbs: 'ကာဗိုဟိုက်ဒရိတ်' })[row.key]}</Text><Text style={styles.amount}>{row.value}</Text>
             </View>)}
           </GlassCard>
         )}
       </View>
 
-      <Modal visible={sheet !== null} animationType="none" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
+      <Modal visible={sheet !== null} animationType={motion ? 'fade' : 'none'} presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
         <SafeAreaView style={styles.sheet}>
           <ScrollView contentContainerStyle={shared.screen}>
-            <Text style={shared.title} accessibilityRole="header">{sheet === 'calories' ? 'Calories' : 'Scan info'}</Text>
-            {sheet === 'calories' ? <Text style={shared.body}>{estimated ? `Estimated ${energy} for the portion in the photo.` : `${energy} ${reported?.quantity ?? ''} · Open Food Facts`}</Text> : (
+            <Text style={shared.title} accessibilityRole="header">{sheet === 'calories' ? 'ကယ်လိုရီ' : 'စစ်ဆေးချက် အသေးစိတ်'}</Text>
+            {sheet === 'calories' ? <Text style={shared.body}>{estimated ? `ဓာတ်ပုံထဲရှိ ပမာဏအတွက် ${energy} ခန့် ရှိသည်။` : `${energy} ${reported?.quantity ?? ''} · Open Food Facts`}</Text> : (
               <>
                 <Text style={shared.heading}>{look.badge}</Text>
                 <Text style={shared.body}>{look.line}</Text>
@@ -126,7 +131,7 @@ export function VerdictCard({ verdict, photo, onBack }: {
                 <Text style={shared.muted} testID="verdict-notice">{verdict.notice}</Text>
               </>
             )}
-            <Pressable style={shared.button} accessibilityRole="button" onPress={() => setSheet(null)}><Text style={shared.buttonText}>Done</Text></Pressable>
+            <Pressable style={shared.button} accessibilityRole="button" onPress={() => setSheet(null)}><Text style={shared.buttonText}>ပြီးပါပြီ</Text></Pressable>
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -135,7 +140,7 @@ export function VerdictCard({ verdict, photo, onBack }: {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingHorizontal: 18, paddingTop: 13, gap: 11 },
+  body: { paddingHorizontal: 18, paddingTop: 20, gap: 14 },
   hero: { minHeight: 210, height: 228, backgroundColor: colors.tint },
   back: { position: 'absolute', top: 12, left: 16 },
   compactHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 8 },

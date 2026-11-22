@@ -19,30 +19,29 @@ export default function NoticeScreen() {
     <GlassBackground>
       <ScrollView contentContainerStyle={shared.screen}>
         <View style={styles.intro}>
-          <Text style={shared.title} accessibilityRole="header">Welcome to Food Scanner</Text>
-          <Text style={shared.body}>Check meals and packaged foods against your stomach profile.</Text>
+          <Text style={shared.title} accessibilityRole="header">အသုံးမပြုမီ</Text>
         </View>
         <GlassCard>
-          <Text style={shared.heading} accessibilityRole="header">A guide, not medical advice</Text>
+          <Text style={shared.heading} accessibilityRole="header">ကျန်းမာရေး လမ်းညွှန်</Text>
           <Text style={shared.body}>
-            Food Scanner gives general information about foods that commonly bother certain stomach conditions. It can miss ingredients and does not know your full medical history.
+            ဤအက်ပ်က သင့်အစာခြေစနစ်နှင့် မတည့်နိုင်သော အစားအစာများကို ခန့်မှန်းပေးသည်။ ပါဝင်ပစ္စည်းအားလုံးနှင့် သင့်ကျန်းမာရေးရာဇဝင်ကို မသိနိုင်ပါ။
           </Text>
           <Text style={shared.body}>
-            Do not use it to diagnose or treat a condition. If you are unsure, or a food has caused you a serious reaction before, ask your doctor or dietitian.
+            ရောဂါရှာဖွေခြင်း၊ ကုသခြင်းအတွက် အသုံးမပြုပါနှင့်။ မသေချာလျှင် သို့မဟုတ် ပြင်းထန်စွာ ဓာတ်မတည့်ဖူးလျှင် ဆရာဝန်နှင့် တိုင်ပင်ပါ။
           </Text>
         </GlassCard>
         <GlassCard>
-          <Text style={shared.heading} accessibilityRole="header">How we use your scans</Text>
+          <Text style={shared.heading} accessibilityRole="header">အချက်အလက် အသုံးပြုပုံ</Text>
           <Text style={shared.body}>
-            When you scan, we send your selected conditions, optional notes, and your photo or product information to Anthropic to generate the verdict.
-            Barcode numbers are sent to Open Food Facts. Your profile settings are saved on this phone.
+            အစားအစာကို သင့်ကျန်းမာရေးအချက်အလက်နှင့် တိုက်ဆိုင်စစ်ဆေးသည်။ Anthropic ကို သုံးသည့်အခါ သင်ရွေးထားသော အခြေအနေများနှင့် မှတ်စုကို အစားအစာအချက်အလက်နှင့်အတူ ပေးပို့သည်။
+            Gemini ကို သုံးသည့်အခါ Google သို့ အစားအစာအချက်အလက်ကိုသာ ပေးပို့သည်။ ဓာတ်ပုံမပို့မီ သင့်ထံမှ အတည်ပြုချက် တောင်းမည်။
           </Text>
-          <Text style={shared.body}>Your account stores your name, roll number and verdicts. Cloudinary stores successful scan photos privately so you can view them on another phone.</Text>
-          <Text style={shared.body}>You can delete scans and their photos from History.</Text>
+          <Text style={shared.body}>သင့်အမည်၊ ခုံအမှတ်နှင့် ရလဒ်များကို အကောင့်တွင် သိမ်းထားသည်။ အခြားဖုန်းမှ ကြည့်နိုင်ရန် ဓာတ်ပုံများကို Cloudinary တွင် သီးသန့် သိမ်းထားသည်။</Text>
+          <Text style={shared.body}>မှတ်တမ်းမှ ရလဒ်နှင့် ဓာတ်ပုံများကို ဖျက်နိုင်သည်။</Text>
           <PrivacyPolicyLink />
         </GlassCard>
         <Pressable style={shared.button} onPress={accept} accessibilityRole="button">
-          <Text style={shared.buttonText}>I understand</Text>
+          <Text style={shared.buttonText}>နားလည်ပါပြီ</Text>
         </Pressable>
       </ScrollView>
     </GlassBackground>

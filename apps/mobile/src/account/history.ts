@@ -1,27 +1,6 @@
 import { CloudHistorySchema, CloudScanSchema, type AccountSession, type CloudScan } from '@food-scanner/contracts';
-import { File, Paths } from 'expo-file-system';
-import * as SQLite from 'expo-sqlite';
+import { cached, hasPendingPhoto, readPendingPhoto, removePendingPhotos, saveCache, savePendingPhoto } from './history-storage';
 import { accountRequest, AccountRequestError, activeSession, apiBase } from './session.ts';
-
-let database: Promise<SQLite.SQLiteDatabase> | undefined;
-function cache() {
-  database ??= SQLite.openDatabaseAsync('food-scanner-cloud-cache.db').then(async db => {
-    await db.execAsync('CREATE TABLE IF NOT EXISTS account_history (owner TEXT PRIMARY KEY, scans TEXT NOT NULL)');
-    return db;
-  }).catch((error: unknown) => {
-    database = undefined;
-    throw error;
-  });
-  return database;
-}
-async function cached(owner: string) {
-  const row = await (await cache()).getFirstAsync<{ scans: string }>('SELECT scans FROM account_history WHERE owner=?', [owner]);
-  return row ? CloudHistorySchema.parse(JSON.parse(row.scans)) : [];
-}
-async function saveCache(owner: string, scans: CloudScan[]) {
-  const db = await cache();
-  await db.runAsync('INSERT INTO account_history(owner,scans) VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET scans=excluded.scans', [owner, JSON.stringify(scans)]);
-}
 
 let lastOperation = Promise.resolve();
 function inOrder<T>(work: () => Promise<T>): Promise<T> {
@@ -30,8 +9,6 @@ function inOrder<T>(work: () => Promise<T>): Promise<T> {
   return pending;
 }
 
-const filename = (owner: string, scan: string) => `pending-scan-${owner}-${scan}.jpg`;
-const pendingPhoto = (owner: string, id: string) => new File(Paths.cache, filename(owner, id));
 let offlineOwner: string | undefined;
 export const historyIsOffline = () => offlineOwner !== undefined && activeSession()?.user.id === offlineOwner;
 function ownerSession() {
@@ -52,14 +29,13 @@ export function scanPhotoSource(id: string) {
 export async function rememberCloudScan(session: AccountSession, scan: CloudScan, photo: string | null) {
   await inOrder(async () => {
     if (activeSession()?.token !== session.token) return;
-    const file = pendingPhoto(session.user.id, scan.id);
     if (scan.photoState === 'pending' && photo) {
-      await file.write(photo, { encoding: 'base64' });
+      await savePendingPhoto(session.user.id, scan.id, photo);
       if (activeSession()?.token !== session.token) {
-        if (file.exists) file.delete();
+        removePendingPhotos(session.user.id, scan.id);
         return;
       }
-    } else if (scan.photoState === 'ready' && file.exists) file.delete();
+    } else if (scan.photoState === 'ready') removePendingPhotos(session.user.id, scan.id);
     const rows = await cached(session.user.id);
     await saveCache(session.user.id, [scan, ...rows.filter(row => row.id !== scan.id)]
       .sort((a, b) => b.scannedAt.localeCompare(a.scannedAt)));
@@ -107,27 +83,16 @@ export function getCloudScan(id: string) {
 
 export function canRetryPhoto(id: string) {
   const session = activeSession();
-  return session ? pendingPhoto(session.user.id, id).exists : false;
+  return session ? hasPendingPhoto(session.user.id, id) : false;
 }
 
 export async function retryCloudPhoto(id: string, originalPhoto?: string | null) {
   const session = ownerSession();
-  const photo = originalPhoto ?? await pendingPhoto(session.user.id, id).base64();
+  const photo = originalPhoto ?? await readPendingPhoto(session.user.id, id);
   const result = await accountRequest(`/v1/history/${id}/photo`, { method: 'PUT', body: JSON.stringify({ photo }) }, session);
   const scan = CloudScanSchema.parse(await result.json());
   await rememberCloudScan(session, scan, null);
   return scan;
-}
-
-function removePendingPhotos(owner: string, id?: string) {
-  if (id) {
-    const file = pendingPhoto(owner, id);
-    if (file.exists) file.delete();
-    return;
-  }
-  for (const file of Paths.cache.list()) {
-    if (file instanceof File && file.name.startsWith(`pending-scan-${owner}-`)) file.delete();
-  }
 }
 
 export function clearPendingPhotos(owner: string) {

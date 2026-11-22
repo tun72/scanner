@@ -31,6 +31,7 @@ export const PhotoDetailsSchema = z.object({
   })).max(12).optional().catch(undefined),
 });
 export const ProductDetailsSchema = z.object({
+  ingredientStatement: z.string().min(1).max(4000).optional(),
   nutrition: z.object({
     quantity: z.string().min(1).max(80),
     calories: amount.optional(),

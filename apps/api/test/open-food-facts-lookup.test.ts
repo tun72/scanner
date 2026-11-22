@@ -38,6 +38,14 @@ describe('Open Food Facts lookup', () => {
     expect(double.calls[0]!.init?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it('prefers the original Burmese label when the database supplies one', async () => {
+    const source = { product_name: 'Rice cake', product_name_my: 'ဆန်မုန့်', ingredients_text_my: 'ဆန်၊ ဆား' };
+    const double = fetchAnswering(json({ status: 1, product: source }));
+    const result = await lookupWith(double.fetch).findProduct('3017620422003', 'my-MM');
+    expect(double.calls[0]?.url).toContain('ingredients_text_my');
+    expect(result).toMatchObject({ status: 'found', product: { name: 'ဆန်မုန့်', details: { ingredientStatement: 'ဆန်၊ ဆား' } } });
+  });
+
   it('turns a recorded reply into product facts', async () => {
     expect(await find(json(recordedReply))).toEqual({
       status: 'found',

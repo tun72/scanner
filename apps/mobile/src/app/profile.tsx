@@ -1,4 +1,4 @@
-import { CONDITION_IDS, CONDITION_LABELS, MAX_NOTES_LENGTH } from '@food-scanner/contracts';
+import { CONDITION_IDS, BURMESE_CONDITIONS, MAX_NOTES_LENGTH } from '@food-scanner/contracts';
 import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -55,15 +55,15 @@ export default function ProfileScreen() {
     <GlassBackground>
       <ScrollView contentContainerStyle={shared.screen} keyboardShouldPersistTaps="handled">
         <GlassCard>
-          <Text style={shared.title} accessibilityRole="header">Make it yours</Text>
-          <Text style={shared.body}>Select the conditions Food Scanner should consider when you scan.</Text>
+          <Text style={shared.title} accessibilityRole="header">သင့်ကျန်းမာရေး အခြေအနေ</Text>
+          <Text style={shared.body}>သင်နှင့် သက်ဆိုင်သည့် အခြေအနေများကို ရွေးပါ။</Text>
         </GlassCard>
         {canReuse && <Pressable style={[shared.button, shared.buttonSecondary]} accessibilityRole="button" onPress={() => {
           void legacyProfileStore.load().then(previous => {
             if (previous) setForm({ ...startForm(previous, notice.acceptedAt), noticeAcceptedAt: form.noticeAcceptedAt });
             setCanReuse(false);
           }).catch(() => setSaveFailed(true));
-        }}><Text style={[shared.buttonText, shared.buttonSecondaryText]}>Use my previous profile</Text></Pressable>}
+        }}><Text style={[shared.buttonText, shared.buttonSecondaryText]}>ယခင်အချက်အလက်ကို သုံးရန်</Text></Pressable>}
 
         <View style={styles.list}>
           {CONDITION_IDS.map((id) => {
@@ -79,25 +79,25 @@ export default function ProfileScreen() {
                 <View style={[styles.box, checked && styles.boxChecked]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
                   {checked && <Text style={styles.checkmark}>✓</Text>}
                 </View>
-                <Text style={styles.rowText}>{CONDITION_LABELS[id]}</Text>
+                <Text style={styles.rowText}>{BURMESE_CONDITIONS[id]}</Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={shared.heading}>Anything else? <Text style={shared.muted}>(optional)</Text></Text>
+        <Text style={shared.heading}>ထပ်ဖြည့်လိုသည့် မှတ်စု <Text style={shared.muted}>(ဖြည့်လိုမှသာ)</Text></Text>
         <TextInput
           style={styles.notes}
           value={form.notes}
           onChangeText={(notes) => setForm(changeNotes(form, notes))}
-          placeholder="For example: spicy food hurts, milk upsets me"
+          placeholder="ဥပမာ - နို့သောက်လျှင် ဗိုက်အောင့်တတ်သည်"
           placeholderTextColor={colors.muted}
           maxLength={MAX_NOTES_LENGTH}
           multiline
-          accessibilityLabel="Notes about what bothers your stomach"
+          accessibilityLabel="မတည့်သည့် အစားအစာ မှတ်စု"
         />
         <Text style={shared.muted}>
-          {form.notes.length} / {MAX_NOTES_LENGTH}
+          {form.notes.length.toLocaleString('my-MM')} / {MAX_NOTES_LENGTH.toLocaleString('my-MM')}
         </Text>
 
         {form.problem !== null && (
@@ -105,15 +105,11 @@ export default function ProfileScreen() {
             {PROBLEM_MESSAGES[form.problem]}
           </Text>
         )}
-        {saveFailed && <Text style={styles.problem} accessibilityRole="alert">Couldn’t save your profile. Try again.</Text>}
+        {saveFailed && <Text style={styles.problem} accessibilityRole="alert">အချက်အလက် သိမ်း၍ မရပါ။ ပြန်ကြိုးစားပါ။</Text>}
 
         <Pressable style={[shared.button, saving && shared.buttonDisabled]} onPress={save} disabled={saving} accessibilityRole="button">
-          <Text style={shared.buttonText}>{saving ? 'Saving…' : 'Save profile'}</Text>
+          <Text style={shared.buttonText}>{saving ? 'သိမ်းနေသည်…' : 'အချက်အလက် သိမ်းရန်'}</Text>
         </Pressable>
-
-        <Text style={shared.muted}>
-          Your profile settings stay on this phone. Scans use your conditions and notes to check the food.
-        </Text>
       </ScrollView>
     </GlassBackground>
   );

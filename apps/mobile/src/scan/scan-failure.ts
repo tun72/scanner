@@ -5,10 +5,10 @@ import type { ScanFailure } from './scan-outcome.ts';
 export type FailureAction = 'retry' | 'take-photo' | 'scan-again' | 'home';
 
 export const ACTION_LABELS: Readonly<Record<FailureAction, string>> = {
-  retry: 'Try again',
-  'take-photo': 'Take a photo',
-  'scan-again': 'Scan again',
-  home: 'Back home',
+  retry: 'ပြန်ကြိုးစားရန်',
+  'take-photo': 'ဓာတ်ပုံဖြင့် စစ်ရန်',
+  'scan-again': 'ပြန်စစ်ရန်',
+  home: 'ပင်မစာမျက်နှာသို့',
 };
 
 export interface FailureDisplay {
@@ -16,20 +16,17 @@ export interface FailureDisplay {
   actions: FailureAction[];
 }
 
-export const UNREACHABLE_MESSAGE = "We couldn't reach Food Scanner. Check your internet connection and try again.";
-export const BAD_REPLY_MESSAGE = "We can't check foods right now. Please try again in a moment.";
-export const NOT_SENDABLE_MESSAGE = "We couldn't read that scan. Please try again.";
+export const UNREACHABLE_MESSAGE = "ချိတ်ဆက်၍ မရပါ။ အင်တာနက်လိုင်း စစ်ပြီး ပြန်ကြိုးစားပါ။";
+export const BAD_REPLY_MESSAGE = "လောလောဆယ် စစ်ဆေး၍ မရပါ။ ခဏနေ ပြန်ကြိုးစားပါ။";
+export const NOT_SENDABLE_MESSAGE = "ဖတ်၍ မရပါ။ ပြန်စစ်ပါ။";
 
 function waitText(retryAfterSeconds: number | undefined): string {
   if (retryAfterSeconds === undefined) return '';
   const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
-  return ` You can scan again in about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`;
+  return ` ${minutes.toLocaleString('my-MM')} မိနစ်ခန့်အကြာ ပြန်စစ်ပါ။`;
 }
 
-/**
- * The message and buttons for a failed scan. The API's own messages are shown as they are:
- * they are written for the user and never repeat what was sent.
- */
+/** Localized recovery actions for each API error code. */
 export function describeFailure(failure: ScanFailure, scanKind: ScanRequest['kind']): FailureDisplay {
   switch (failure.reason) {
     case 'unreachable':
@@ -39,17 +36,17 @@ export function describeFailure(failure: ScanFailure, scanKind: ScanRequest['kin
     case 'not-sendable':
       return { message: NOT_SENDABLE_MESSAGE, actions: ['scan-again'] };
     case 'refused': {
-      const { code, message, retryAfterSeconds } = failure.error;
+      const { code, retryAfterSeconds } = failure.error;
       switch (code) {
         case 'product-not-found':
-          return { message, actions: ['take-photo'] };
+          return { message: 'ဤပစ္စည်းကို ရှာမတွေ့ပါ။ ဓာတ်ပုံရိုက်ပြီး စစ်ပါ။', actions: ['take-photo'] };
         case 'ai-unavailable':
           // A barcode can also be judged from a photo, which skips the product database.
-          return { message, actions: scanKind === 'barcode' ? ['retry', 'take-photo'] : ['retry'] };
+          return { message: BAD_REPLY_MESSAGE, actions: scanKind === 'barcode' ? ['retry', 'take-photo'] : ['retry'] };
         case 'rate-limited':
-          return { message: message + waitText(retryAfterSeconds), actions: ['home'] };
+          return { message: 'ယခုနာရီအတွက် စစ်ဆေးနိုင်သည့် အကြိမ်ရေ ပြည့်သွားပါပြီ။' + waitText(retryAfterSeconds), actions: ['home'] };
         case 'invalid-request':
-          return { message, actions: ['scan-again'] };
+          return { message: NOT_SENDABLE_MESSAGE, actions: ['scan-again'] };
       }
     }
   }

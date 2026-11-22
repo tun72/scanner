@@ -37,6 +37,7 @@ export const PhotoScanRequestSchema = z.strictObject({
   ...scanBase,
   kind: z.literal('photo'),
   photo: z.base64().min(1).max(MAX_PHOTO_BASE64_LENGTH),
+  foodOnly: z.literal(true).optional(),
 });
 
 export const BarcodeScanRequestSchema = z.strictObject({

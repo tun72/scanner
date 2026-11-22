@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { AccessibilityInfo, Image, Platform, StyleSheet, TurboModuleRegistry, View, type StyleProp, type ViewStyle } from 'react-native';
 
 const soboPoster = require('../../assets/sobo-poster.png');
-const supportsPlayer = Platform.OS === 'ios' || Platform.OS === 'android';
+const supportsPlayer = Platform.OS === 'web' || Platform.OS === 'ios' || Platform.OS === 'android';
 
 /** Show a frame from Sobo while the player loads or when Reduce Motion is enabled. */
 export function MascotScene({ style }: { style?: StyleProp<ViewStyle> }) {
@@ -11,6 +11,7 @@ export function MascotScene({ style }: { style?: StyleProp<ViewStyle> }) {
   const [playing, setPlaying] = useState(false);
 
   useFocusEffect(useCallback(() => {
+    if (!supportsPlayer) return;
     let active = true;
     let preferenceChanged = false;
 
@@ -27,14 +28,14 @@ export function MascotScene({ style }: { style?: StyleProp<ViewStyle> }) {
 
     return () => {
       active = false;
-      listener.remove();
+      listener?.remove();
       setMotionEnabled(false);
       setPlaying(false);
     };
   }, []));
 
-  const SoboPlayer = supportsPlayer && motionEnabled && TurboModuleRegistry.get('RNCWebViewModule')
-    ? (require('./sobo-player.tsx') as typeof import('./sobo-player.tsx')).SoboPlayer
+  const SoboPlayer = motionEnabled && (Platform.OS === 'web' || TurboModuleRegistry.get('RNCWebViewModule'))
+    ? (require('./sobo-player') as typeof import('./sobo-player')).SoboPlayer
     : null;
 
   return (

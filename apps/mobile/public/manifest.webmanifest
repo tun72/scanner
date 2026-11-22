@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "အစားအသောက်စစ်ဆေးရေး",
+  "short_name": "အစားအသောက်",
+  "lang": "my-MM",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F7F3",
+  "theme_color": "#F4F7F3",
+  "icons": [
+    { "src": "/app-icon.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}

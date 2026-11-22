@@ -8,9 +8,9 @@ export interface ProfileFormState extends ProfileDraft {
 }
 
 export const PROBLEM_MESSAGES: Readonly<Record<ProfileProblem, string>> = {
-  'notice-not-accepted': 'Please read and accept the notice first.',
-  'nothing-chosen': 'Pick at least one condition, or write a note about what bothers you.',
-  'notes-too-long': `Notes can be up to ${MAX_NOTES_LENGTH} characters.`,
+  'notice-not-accepted': 'အသိပေးချက်ကို ဖတ်ပြီး အတည်ပြုပါ။',
+  'nothing-chosen': 'အခြေအနေတစ်ခု ရွေးပါ သို့မဟုတ် မှတ်စုရေးပါ။',
+  'notes-too-long': `မှတ်စုတွင် စာလုံးရေ ${MAX_NOTES_LENGTH.toLocaleString('my-MM')} အထိ ရေးနိုင်သည်။`,
 };
 
 /** Starts the form from the saved profile when editing, or empty with the just-accepted notice when new. */

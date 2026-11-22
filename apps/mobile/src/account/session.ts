@@ -1,8 +1,10 @@
 import { SessionSchema, type AccountSession } from '@food-scanner/contracts';
-import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import * as sessionStorage from './session-storage';
 
 const configuredApi = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
-export const apiBase = configuredApi.startsWith('https://') || (__DEV__ && configuredApi.startsWith('http://')) ? configuredApi : '';
+const browserOrigin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : '';
+export const apiBase = browserOrigin || (configuredApi.startsWith('https://') || (__DEV__ && configuredApi.startsWith('http://')) ? configuredApi : '');
 const sessionKey = 'mobile-account-session';
 const revocationKey = 'pending-mobile-signout';
 let current: AccountSession | null = null;
@@ -49,25 +51,25 @@ export async function accountRequest(path: string, init: RequestInit = {}, sessi
 export async function invalidateSession(session: AccountSession) {
   if (current?.token !== session.token) return;
   publish(null);
-  await SecureStore.deleteItemAsync(sessionKey);
+  await sessionStorage.deleteItemAsync(sessionKey);
 }
 
 async function retrySignOut() {
-  const saved = await SecureStore.getItemAsync(revocationKey);
+  const saved = await sessionStorage.getItemAsync(revocationKey);
   if (!saved) return;
   const pending = SessionSchema.safeParse(JSON.parse(saved)).data;
   if (pending && Date.parse(pending.expiresAt) > Date.now()) await accountRequest('/v1/session', { method: 'DELETE' }, pending);
-  await SecureStore.deleteItemAsync(revocationKey);
+  await sessionStorage.deleteItemAsync(revocationKey);
 }
 
 export async function restoreSession() {
   void retrySignOut().catch(() => undefined);
   try {
-    const stored = await SecureStore.getItemAsync(sessionKey);
+    const stored = await sessionStorage.getItemAsync(sessionKey);
     const session = stored ? SessionSchema.safeParse(JSON.parse(stored)).data : undefined;
     if (!session || Date.parse(session.expiresAt) <= Date.now()) {
       publish(null);
-      if (stored) await SecureStore.deleteItemAsync(sessionKey);
+      if (stored) await sessionStorage.deleteItemAsync(sessionKey);
       return null;
     }
     // Open the owner-scoped offline history while a remote check runs.
@@ -85,7 +87,7 @@ export async function signIn(rollNumber: string, password: string) {
     method: 'POST', body: JSON.stringify({ rollNumber, password }),
   }, null);
   const session = SessionSchema.parse(await response.json());
-  await SecureStore.setItemAsync(sessionKey, JSON.stringify(session));
+  await sessionStorage.setItemAsync(sessionKey, JSON.stringify(session));
   publish(session);
   void retrySignOut().catch(() => undefined);
 }
@@ -93,7 +95,7 @@ export async function signIn(rollNumber: string, password: string) {
 export async function signOut() {
   const session = activeSession();
   if (!session) return;
-  await SecureStore.setItemAsync(revocationKey, JSON.stringify(session));
+  await sessionStorage.setItemAsync(revocationKey, JSON.stringify(session));
   await invalidateSession(session);
   void retrySignOut().catch(() => undefined);
 }

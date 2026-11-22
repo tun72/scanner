@@ -15,45 +15,45 @@ describe('the verdict card', () => {
       } },
     })} />);
 
-    expect(screen.getByText('Food ID confidence')).toBeTruthy();
-    expect(screen.getByText('Medium')).toBeTruthy();
-    expect(screen.getByText('Seen')).toBeTruthy();
-    expect(screen.getByText('Possible')).toBeTruthy();
-    expect(screen.getByText('32–40 g')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Estimated 450–600 kcal. Show details' }));
-    expect(screen.getByText('Estimated 450–600 kcal for the portion in the photo.')).toBeTruthy();
+    expect(screen.getByText('အစားအစာ ခွဲခြားနိုင်မှု')).toBeTruthy();
+    expect(screen.getByText('အသင့်အတင့်')).toBeTruthy();
+    expect(screen.getByText('ပုံတွင် မြင်ရ')).toBeTruthy();
+    expect(screen.getByText('ပါဝင်နိုင်')).toBeTruthy();
+    expect(screen.getByText('၃၂–၄၀ ဂရမ်')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'ခန့်မှန်း ၄၅၀–၆၀၀ ကီလိုကယ်လိုရီ · အသေးစိတ်' }));
+    expect(screen.getByText('ဓာတ်ပုံထဲရှိ ပမာဏအတွက် ၄၅၀–၆၀၀ ကီလိုကယ်လိုရီ ခန့် ရှိသည်။')).toBeTruthy();
   });
 
   it('shows reported nutrition with its quantity and keeps older verdicts readable', async () => {
     const app = await render(<VerdictCard verdict={verdict({
       details: { kind: 'product', product: { nutrition: { quantity: 'per 100 mL', calories: 0 }, allergens: ['chilli'] } },
     })} />);
-    expect(screen.getByText('Allergen Caution')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: '0 kcal. Show details' }));
-    expect(screen.getByText('0 kcal per 100 mL · Open Food Facts')).toBeTruthy();
+    expect(screen.getByText('ဓာတ်မတည့်မှု သတိပြုရန်')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '၀ ကီလိုကယ်လိုရီ · အသေးစိတ်' }));
+    expect(screen.getByText('၀ ကီလိုကယ်လိုရီ ၁၀၀ မီလီလီတာလျှင် · Open Food Facts')).toBeTruthy();
     await app.unmount();
     await render(<VerdictCard verdict={verdict()} />);
-    expect(screen.getByText('Calories unavailable')).toBeTruthy();
+    expect(screen.getByText('ကယ်လိုရီ မသိရသေးပါ')).toBeTruthy();
   });
 
   it('TC16 the verdict screen shows level, food, reasons, flagged ingredients and tip', async () => {
     await render(<VerdictCard verdict={verdict()} />);
 
-    expect(screen.getByTestId('verdict-badge').props.children).toBe('Avoid');
+    expect(screen.getByTestId('verdict-badge').props.children).toBe('ရှောင်ရန်');
     expect(badgeColour()).toBe('#B3261E');
     expect(screen.getByText('Spicy noodle soup')).toBeTruthy();
     expect(screen.getByText('chilli')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Scan info' }));
-    expect(screen.getByText('Acid reflux (GERD) · Avoid')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
+    expect(screen.getByText('အစာအိမ်အက်စစ် ပြန်တက်ခြင်း · ရှောင်ရန်')).toBeTruthy();
     expect(screen.getByText('Chilli and a hot, acidic broth often bring on reflux.')).toBeTruthy();
     expect(screen.getByText('Ask for a mild broth without chilli.')).toBeTruthy();
     expect(screen.getByText(NOTICE)).toBeTruthy();
   });
 
   it.each([
-    ['safe', 'Safe', '#1F7A4D'],
-    ['caution', 'Caution', '#9A5B00'],
-    ['unsure', 'Not sure', '#5B6470'],
+    ['safe', 'သင့်လျော်နိုင်', '#1F7A4D'],
+    ['caution', 'သတိပြုရန်', '#9A5B00'],
+    ['unsure', 'မသေချာပါ', '#5B6470'],
   ] as const)('shows %s as a %s badge in its colour', async (level, badge, colour) => {
     await render(<VerdictCard verdict={verdict({ level, reasons: [], flaggedIngredients: [] })} />);
 

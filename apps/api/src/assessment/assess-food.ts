@@ -1,11 +1,11 @@
-import { PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ProductDetails, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
+import { burmeseVerdict, PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ProductDetails, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
 import { checkScanRequest } from './check-request.ts';
 import { aiUnavailable, productLookupUnavailable, productNotFound } from './errors.ts';
 import type { FoodJudge, JudgeFailure, JudgeResult, TokenUsage } from './food-judge.ts';
 import type { LookupFailure, ProductLookup } from './product-lookup.ts';
 import { applyVerdictRules, labelForTarget, type Verdict } from './verdict.ts';
 
-/** Shown with every verdict. English only in this slice. */
+/** Source notice, localized when formatting the verdict. */
 export const NOT_MEDICAL_ADVICE_NOTICE = "Food Scanner is a guide, not medical advice. If you're unsure, ask your doctor or dietitian.";
 
 type ScanKind = ScanRequest['kind'];
@@ -21,6 +21,7 @@ export interface AssessFoodDeps {
   products: ProductLookup;
   /** The clock is passed in so the time on a verdict can be tested. */
   now: () => Date;
+  requireFoodOnlyPhoto?: boolean;
 }
 
 /** Judges one scan request. Takes the raw body: deciding what is acceptable is part of this use case. */
@@ -54,13 +55,13 @@ function toResponse(verdict: Verdict, source: VerdictResponse['source'], foodNam
  *
  * Nothing here stores or logs the photo, the barcode or the profile: they live only for the length of the call.
  */
-export function createAssessFood({ judge, products, now }: AssessFoodDeps): AssessFood {
+export function createAssessFood({ judge, products, now, requireFoodOnlyPhoto = false }: AssessFoodDeps): AssessFood {
   /** A photo goes straight to the judge; a barcode is first turned into the product's listed facts. */
   async function judgeScan(request: ScanRequest): Promise<Judged> {
     const { profile, locale } = request;
     if (request.kind === 'photo') return { judged: await judge.judgePhoto({ photoBase64: request.photo, profile, locale }) };
 
-    const lookup = await products.findProduct(request.barcode);
+    const lookup = await products.findProduct(request.barcode, locale);
     if (lookup.status === 'not-found') return { kind: 'not-found', scanKind: 'barcode', error: productNotFound() };
     if (lookup.status === 'unavailable') return { kind: 'unavailable', scanKind: 'barcode', error: productLookupUnavailable(), failure: lookup.failure };
     const judged = await judge.judgeProduct({ product: lookup.product, profile, locale });
@@ -75,6 +76,12 @@ export function createAssessFood({ judge, products, now }: AssessFoodDeps): Asse
     const check = checkScanRequest(body);
     if (!check.ok) return { kind: 'refused', error: check.error, ...(check.scanKind === undefined ? {} : { scanKind: check.scanKind }) };
     const scanKind = check.request.kind;
+    if (requireFoodOnlyPhoto && check.request.kind === 'photo' && !check.request.foodOnly) {
+      return {
+        kind: 'refused', scanKind,
+        error: { code: 'invalid-request', message: 'Confirm that your photo shows only food before scanning.' },
+      };
+    }
 
     const result = await judgeScan(check.request);
     if ('kind' in result) return result;
@@ -97,6 +104,6 @@ export function createAssessFood({ judge, products, now }: AssessFoodDeps): Asse
     // trigger would give the user a reason they cannot read, so it counts as a bad reply.
     const response = VerdictResponseSchema.safeParse(candidate);
     if (!response.success) return { kind: 'unavailable', scanKind, error: aiUnavailable(), failure: 'invalid-reply', usage: judged.usage };
-    return { kind: 'verdict', scanKind, response: response.data, usage: judged.usage };
+    return { kind: 'verdict', scanKind, response: check.request.locale.split('-')[0] === 'my' ? burmeseVerdict(response.data) : response.data, usage: judged.usage };
   };
 }

@@ -1,8 +1,8 @@
 import { ScanRequestSchema, type ScanRequest } from '@food-scanner/contracts';
 import type { StomachProfile } from '../profile/stomach-profile.ts';
 
-/** The language the verdict text is written in. English until the launch languages are decided. */
-export const SCAN_LOCALE = 'en';
+/** The language the verdict text is written in. Use Myanmar Unicode for every new scan. */
+export const SCAN_LOCALE = 'my-MM';
 
 /** Product barcodes the camera reads: EAN-13, EAN-8, UPC-A and UPC-E. */
 export const PRODUCT_BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e'] as const;

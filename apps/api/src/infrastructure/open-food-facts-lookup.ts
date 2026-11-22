@@ -27,6 +27,8 @@ const ReplySchema = z.object({
   product: z
     .object({
       product_name: optionalText,
+      product_name_my: optionalText,
+      ingredients_text_my: optionalText,
       brands: optionalText,
       ingredients_text: optionalText,
       ingredients: z.array(z.object({ text: optionalText })).optional().catch(undefined),
@@ -117,8 +119,10 @@ const isTimeout = (error: unknown): boolean => error instanceof Error && error.n
  */
 export function createOpenFoodFactsLookup({ baseUrl, userAgent, timeoutMs, fetch: fetchProduct = fetch }: OpenFoodFactsOptions): ProductLookup {
   return {
-    async findProduct(barcode): Promise<ProductLookupResult> {
-      const url = `${baseUrl.replace(/\/+$/, '')}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${FIELDS}`;
+    async findProduct(barcode, locale): Promise<ProductLookupResult> {
+      const burmese = locale?.split('-')[0] === 'my';
+      const fields = burmese ? FIELDS + ',product_name_my,ingredients_text_my' : FIELDS;
+      const url = `${baseUrl.replace(/\/+$/, '')}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${fields}`;
       try {
         const response = await fetchProduct(url, {
           headers: { 'user-agent': userAgent, accept: 'application/json' },
@@ -132,7 +136,18 @@ export function createOpenFoodFactsLookup({ baseUrl, userAgent, timeoutMs, fetch
         if (!reply.success) return { status: 'unavailable', failure: 'lookup-error' };
         if (reply.data.status === 0 || reply.data.product === undefined) return { status: 'not-found' };
 
-        const product = toProductFacts(barcode, reply.data.product);
+        const listed = reply.data.product;
+        const product = toProductFacts(barcode, listed);
+        if (burmese) {
+          const name = textOrUndefined(listed.product_name_my, MAX_NAME_LENGTH);
+          const ingredients = textOrUndefined(listed.ingredients_text_my, MAX_INGREDIENTS_LENGTH);
+          if (name) product.name = name;
+          if (ingredients) {
+            product.ingredientsText = ingredients;
+            // Preserve the source label, including nested ingredient groups and punctuation.
+            product.details = { ...product.details, ingredientStatement: ingredients };
+          }
+        }
         // With neither a name nor ingredients there is nothing to judge, so the user is asked for a photo.
         if (product.name === undefined && product.ingredientsText === undefined) return { status: 'not-found' };
         return { status: 'found', product };

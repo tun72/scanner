@@ -21,7 +21,7 @@ export default function HomeScreen() {
     void profileStore.load().then(profile => {
       if (active) setProfile(profile);
     }).catch(() => { if (active) setProfile(null); });
-    if (session) void scanHistory.listNewestFirst().then(rows => {
+    void scanHistory.listNewestFirst().then(rows => {
       if (active) setRecent(rows.slice(0, 3));
     }).catch(() => undefined);
     return () => { active = false; };
@@ -43,17 +43,28 @@ export default function HomeScreen() {
   return (
     <GlassBackground>
       <ScrollView contentContainerStyle={shared.screen}>
-        <Text style={shared.title} accessibilityRole="header">What are you eating?</Text>
+        <Text style={shared.title} accessibilityRole="header">အစားအစာ စစ်ဆေးရန်</Text>
         <View style={styles.actions}>
-          <Pressable style={[shared.button, styles.action]} onPress={() => session ? scan('photo') : router.push('/scan')} accessibilityRole="button">
-            <Text style={shared.buttonText}>{session ? 'Photo scan' : 'Scan a food'}</Text>
+          <Pressable style={({ pressed }) => [styles.tile, styles.photoTile, pressed && styles.pressed]} accessibilityRole="button"
+            onPress={() => session ? scan('photo') : router.push('/scan')}>
+            <View aria-hidden style={styles.cameraIcon}><View style={styles.lens} /></View>
+            <Text style={[styles.tileLabel, { color: '#FFFFFF' }]}>{session ? 'ဓာတ်ပုံဖြင့် စစ်ရန်' : 'အစားအစာ စစ်ရန်'}</Text>
           </Pressable>
-          {session && <Pressable style={[shared.button, shared.buttonSecondary, styles.action]} onPress={() => scan('barcode')} accessibilityRole="button">
-            <Text style={shared.buttonSecondaryText}>Barcode</Text>
-          </Pressable>}
+          <Pressable style={({ pressed }) => [styles.tile, styles.codeTile, pressed && styles.pressed]} accessibilityRole="button" onPress={() => scan('barcode')}>
+            <View aria-hidden style={styles.codeIcon}>
+              {[3, 1, 4, 2, 1, 3, 2].map((width, index) => <View key={index} style={{ width, height: 20, backgroundColor: colors.primaryPressed }} />)}
+            </View>
+            <Text style={styles.tileLabel}>ဘားကုဒ်ဖတ်ရန်</Text>
+          </Pressable>
         </View>
         <GlassCard>
-          <Text style={shared.heading}>Recent scans</Text>
+          <View style={styles.sectionHead}>
+            <Text style={[shared.heading, styles.food]}>နောက်ဆုံး စစ်ဆေးချက်များ</Text>
+            <Pressable style={styles.link} accessibilityRole="button" onPress={() => router.push('/history')}>
+              <Text style={shared.buttonSecondaryText}>မှတ်တမ်း</Text>
+            </Pressable>
+          </View>
+          {recent.length === 0 && <Text style={shared.muted}>မှတ်တမ်း မရှိသေးပါ</Text>}
           {recent.map(item => (
             <Pressable key={item.id} style={styles.row} accessibilityRole="button"
               onPress={() => router.push({ pathname: '/history/[id]', params: { id: item.id } })}>
@@ -61,20 +72,18 @@ export default function HomeScreen() {
               <Text style={[shared.muted, { color: VERDICT_LOOKS[item.level].colour }]}>{VERDICT_LOOKS[item.level].badge}</Text>
             </Pressable>
           ))}
-          <Pressable style={[shared.button, shared.buttonSecondary]} onPress={() => router.push('/history')} accessibilityRole="button">
-            <Text style={[shared.buttonText, shared.buttonSecondaryText]}>History</Text>
-          </Pressable>
+
         </GlassCard>
         <GlassCard>
-          <Text style={shared.heading}>Your stomach profile</Text>
+          <Text style={shared.heading}>အစာခြေကျန်းမာရေး</Text>
           <Pressable style={[shared.button, shared.buttonSecondary]} onPress={() => router.push(profile ? '/profile' : '/notice')} accessibilityRole="button">
-            <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{profile ? 'Edit profile' : 'Set up profile'}</Text>
+            <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{profile ? 'အချက်အလက် ပြင်ရန်' : 'အချက်အလက် ဖြည့်ရန်'}</Text>
           </Pressable>
         </GlassCard>
         {session && <Pressable style={[shared.button, shared.buttonSecondary]} onPress={() => void exit()} accessibilityRole="button">
-          <Text style={[shared.buttonText, shared.buttonSecondaryText]}>Sign out</Text>
+          <Text style={[shared.buttonText, shared.buttonSecondaryText]}>အကောင့်ထွက်ရန်</Text>
         </Pressable>}
-        {problem && <Text accessibilityRole="alert" style={shared.muted}>Couldn’t finish signing out. Try again.</Text>}
+        {problem && <Text accessibilityRole="alert" style={shared.muted}>အကောင့်ထွက်၍ မရပါ။ ပြန်ကြိုးစားပါ။</Text>}
       </ScrollView>
     </GlassBackground>
   );
@@ -83,7 +92,16 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   loading: { flex: 1 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  action: { flexGrow: 1, flexBasis: 120 },
+  tile: { flexGrow: 1, flexBasis: 130, minHeight: 132, borderRadius: 20, padding: 18, gap: 18, justifyContent: 'space-between' },
+  photoTile: { backgroundColor: colors.primaryPressed },
+  codeTile: { backgroundColor: '#D7EBDD' },
+  tileLabel: { color: colors.primaryPressed, fontWeight: '700', fontSize: 17, lineHeight: 30 },
+  pressed: { opacity: 0.85 },
+  cameraIcon: { marginTop: 4, width: 32, height: 23, borderWidth: 2, borderColor: '#DAF3DE', borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  lens: { width: 12, height: 12, borderWidth: 2, borderColor: '#DAF3DE', borderRadius: 6 },
+  codeIcon: { flexDirection: 'row', gap: 2, paddingVertical: 4 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  link: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 44 },
   food: { flex: 1, minWidth: 110 },
 });
