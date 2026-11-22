@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "07801669-1252-4430-a873-e89658824e1f"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.tun72.foodscanner",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/07801669-1252-4430-a873-e89658824e1f"
+    },
+    "android": {}
+  }
+}

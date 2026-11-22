@@ -46,9 +46,9 @@ export function GlassBackground({ children }: { children: ReactNode }) {
   );
 }
 
-export function GlassCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function GlassCard({ children, style, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; testID?: string }) {
   const solid = useContext(SolidSurfaces);
-  return <View style={[styles.card, solid && styles.solid, style]}>{children}</View>;
+  return <View testID={testID} style={[styles.card, solid && styles.solid, style]}>{children}</View>;
 }
 
 export function GlassIcon({ label, glyph, onPress }: { label: string; glyph: string; onPress(): void }) {

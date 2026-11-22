@@ -1,6 +1,18 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
-import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
+import { Link } from 'expo-router';
+import { useRef, useState } from 'react';
+import {
+  Image,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+  type ImageStyle,
+  type TextInputInstance,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccountRequestError, signIn } from '../account/session.ts';
 import { PrivacyPolicyLink } from '../profile/privacy-policy-link.tsx';
@@ -16,19 +28,21 @@ const icons = {
 
 export default function LoginScreen() {
   const safeArea = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const passwordInput = useRef<TextInputInstance>(null);
-  const [focusedField, setFocusedField] = useState<LoginField>();
+  const [, setFocusedField] = useState<LoginField>();
   const [rollNumber, setRollNumber] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const desktop = width >= 768;
   const disabled = submitting || !rollNumber.trim() || !password;
 
   const clearFocus = (field: LoginField) => {
-    setFocusedField(current => current === field ? undefined : current);
+    setFocusedField(current => (current === field ? undefined : current));
+  };
+
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
   };
 
   const submit = async () => {
@@ -41,148 +55,227 @@ export default function LoginScreen() {
       setPassword('');
     } catch (failure) {
       const status = failure instanceof AccountRequestError ? failure.status : 0;
-      setError(status === 401 || status === 400 ? 'ခုံအမှတ်နှင့် စကားဝှက်ကို ပြန်စစ်ပါ။'
-        : status === 429 ? 'တစ်မိနစ်စောင့်ပြီး ပြန်ကြိုးစားပါ။' : 'အကောင့်ဝင်၍ မရသေးပါ။ ပြန်ကြိုးစားပါ။');
+      setError(
+        status === 401 || status === 400
+          ? 'ခုံအမှတ်နှင့် စကားဝှက်ကို ပြန်စစ်ပါ။'
+          : status === 429
+            ? 'ခဏစောင့်ပြီး ပြန်ကြိုးစားပါ။'
+            : 'အကောင့်ဝင်၍ မရပါ။ ပြန်ကြိုးစားပါ။'
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <LinearGradient colors={['#E5EFE7', '#F5F6EF', '#F1F2EB']} locations={[0, 0.44, 1]}
-        style={StyleSheet.absoluteFill} pointerEvents="none" />
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        <View testID="sign-in-layout" style={[
-          styles.content, desktop && styles.desktopContent,
-          { paddingTop: safeArea.top + (desktop ? 36 : 42), paddingBottom: safeArea.bottom + 24 },
-        ]}>
-          <View testID="sign-in-card" style={[styles.panel, desktop && styles.desktopPanel]}>
-            <View style={styles.formRow}>
-              <Text style={styles.label}>ခုံအမှတ်</Text>
-              <View style={[styles.field, focusedField === 'rollNumber' && styles.focusedField]}>
-                <Image source={icons.student} style={styles.leadingIcon} aria-hidden />
-                <TextInput placeholder="ဥပမာ UCSKT-00000" placeholderTextColor={styles.placeholder.color}
-                  value={rollNumber} onChangeText={setRollNumber}
-                  onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
-                  autoCapitalize="none" autoCorrect={false}
-                  autoComplete="username" accessibilityLabel="ခုံအမှတ်" maxLength={50} style={[styles.input, isWeb && styles.webInput]}
-                  returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
+    <GlassBackground>
+      <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
+        <View
+          testID="sign-in-layout"
+          style={[
+            styles.content,
+            {
+              paddingTop: safeArea.top + 8,
+              paddingBottom: Math.max(safeArea.bottom, 12),
+            },
+          ]}
+        >
+          <View style={styles.formStack}>
+            <View style={styles.hero}>
+              <View testID="sign-in-mascot" pointerEvents="none" style={styles.mascot}>
+                <MascotScene style={styles.mascot} />
               </View>
             </View>
-            <View style={styles.formRow}>
-              <Text style={styles.label}>စကားဝှက်</Text>
-              <View style={[styles.field, focusedField === 'password' && styles.focusedField]}>
-                <Image source={icons.lock} style={styles.leadingIcon} aria-hidden />
-                <TextInput placeholder="စကားဝှက် ထည့်ပါ" placeholderTextColor={styles.placeholder.color}
-                  ref={passwordInput} value={password} onChangeText={setPassword}
-                  onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
-                  autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
-                  accessibilityLabel="စကားဝှက်" maxLength={128} style={[styles.input, isWeb && styles.webInput]}
-                  returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
-                <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
-                  onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
-                  <Image source={icons.eye} style={styles.eyeIcon} aria-hidden />
-                  {visible && <View style={styles.eyeSlash} pointerEvents="none" />}
-                </Pressable>
+            <GlassCard testID="sign-in-card" style={styles.card}>
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Student ID</Text>
+                <View style={styles.field}>
+                  <Image
+                    source={require('../../assets/login/student.png')}
+                    style={styles.inputIcon as ImageStyle}
+                    resizeMode="contain"
+                  />
+                  <TextInput
+                    value={rollNumber}
+                    onChangeText={text => setRollNumber(text.toUpperCase())}
+                    onFocus={() => setFocusedField('rollNumber')}
+                    onBlur={() => clearFocus('rollNumber')}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    autoComplete="username"
+                    accessibilityLabel="ခုံအမှတ်"
+                    maxLength={50}
+                    style={styles.input}
+                    placeholder="UCSKT-22028"
+                    placeholderTextColor="#A0ADA6"
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    onSubmitEditing={() => passwordInput.current?.focus()}
+                  />
+                </View>
               </View>
-            </View>
-            {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-            <Pressable accessibilityRole="button" accessibilityLabel={submitting ? 'ဝင်နေသည်…' : 'အကောင့်ဝင်ရန်'}
-              accessibilityState={{ disabled, busy: submitting }} disabled={disabled} onPress={() => void submit()}
-              style={({ pressed }) => [shared.button, styles.submit, disabled && styles.submitDisabled, pressed && styles.submitPressed]}>
-              <Text style={[shared.buttonText, styles.submitText]}>{submitting ? 'ဝင်နေသည်…' : 'အကောင့်ဝင်ရန်'}</Text>
-              {!submitting && <Text style={styles.arrow} aria-hidden>→</Text>}
-            </Pressable>
-            <View style={styles.privacy}>
-              <Image source={icons.lock} style={styles.privacyIcon} aria-hidden />
-              <Text style={styles.privacyText}>သင့်စစ်ဆေးချက်များကို သင့်အကောင့်တွင် သိမ်းထားပါသည်။</Text>
-            </View>
+
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.field}>
+                  <Image
+                    source={require('../../assets/login/lock.png')}
+                    style={styles.inputIcon as ImageStyle}
+                    resizeMode="contain"
+                  />
+                  <TextInput
+                    ref={passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => clearFocus('password')}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!visible}
+                    autoComplete="current-password"
+                    accessibilityLabel="စကားဝှက်"
+                    maxLength={128}
+                    style={styles.input}
+                    placeholder="စကားဝှက်ထည့်ပါ"
+                    placeholderTextColor="#A0ADA6"
+                    returnKeyType="go"
+                    submitBehavior="submit"
+                    onSubmitEditing={() => void submit()}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
+                    onPress={() => setVisible(current => !current)}
+                    style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}
+                    hitSlop={8}
+                  >
+                    <Image
+                      source={
+                        visible
+                          ? require('../../assets/login/eye.png')
+                          : require('../../assets/login/eye-off.png')
+                      }
+                      style={[styles.eyeIcon as ImageStyle, { tintColor: visible ? colors.primary : '#789083' }]}
+                      resizeMode="contain"
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              {error && (
+                <Text accessibilityRole="alert" style={styles.error}>
+                  {error}
+                </Text>
+              )}
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="အကောင့်ဝင်ရန်"
+                disabled={disabled}
+                onPress={() => void submit()}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  disabled && styles.submitButtonDisabled,
+                  pressed && !disabled && styles.submitButtonPressed,
+                ]}
+              >
+                <Text style={styles.submitButtonText}>
+                  {submitting ? 'အကောင့်ဝင်နေသည်…' : 'အကောင့်ဝင်ရန် →'}
+                </Text>
+              </Pressable>
+            </GlassCard>
           </View>
-          {isWeb && <InstallApp />}
-          <PrivacyPolicyLink inline />
+
+          <View style={styles.footer}>
+            <PrivacyPolicyLink inline />
+            <Text style={[shared.muted, styles.credit]}>
+              <Link href="https://rive.app/marketplace/28761-54484-sobo/">Sobo by Patgrivet</Link>
+              {' · '}
+              <Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
+            </Text>
+          </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
-
-function InstallApp() {
-  const [browser, setBrowser] = useState<'chrome' | 'other'>();
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const device = window.navigator as Navigator & { standalone?: boolean };
-    const appleMobile = /iPhone|iPad|iPod/.test(device.userAgent)
-      || (device.platform === 'MacIntel' && device.maxTouchPoints > 1);
-    if (!appleMobile || device.standalone || window.matchMedia('(display-mode: standalone)').matches) return;
-    setBrowser(/CriOS/.test(device.userAgent) ? 'chrome' : 'other');
-  }, []);
-
-  if (!browser) return null;
-
-  return (
-    <View style={styles.install}>
-      <Pressable
-        accessibilityRole="button"
-        aria-expanded={expanded}
-        onPress={() => setExpanded(value => !value)}
-        style={({ pressed }) => [styles.installButton, pressed && styles.revealPressed]}
-      >
-        <Text style={styles.revealText}>ပင်မမျက်နှာပြင်သို့ ထည့်ရန်</Text>
-      </Pressable>
-      {expanded && (
-        <View style={styles.installHelp}>
-          <Text accessibilityRole="header" style={styles.label}>ထည့်သွင်းနည်း</Text>
-          <Text style={shared.muted}>{browser === 'chrome' ? '၁။ Chrome လိပ်စာဘေးရှိ မျှဝေရန် (Share) ကို နှိပ်ပါ။' : '၁။ မျှဝေရန် (Share) ကို နှိပ်ပါ။'}</Text>
-          <Text style={shared.muted}>၂။ ပင်မမျက်နှာပြင်သို့ ထည့်ရန် (Add to Home Screen) ကို ရွေးပါ။</Text>
-          <Text style={shared.muted}>၃။ ထည့်ရန် (Add) ကို နှိပ်ပါ။</Text>
-        </View>
-      )}
-    </View>
+      </TouchableWithoutFeedback>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#F3F5EE' },
-  scrollContent: { flexGrow: 1 },
-  content: { flexGrow: 1, width: '100%', maxWidth: 504, alignSelf: 'center', paddingHorizontal: 20, gap: 12 },
-  desktopContent: { justifyContent: 'center' },
-  panel: {
-    backgroundColor: colors.surface, borderColor: '#CBDDD0', borderWidth: 1, borderRadius: 28,
-    padding: 20, gap: 20,
-    shadowColor: '#243D2C', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.10, shadowRadius: 28, elevation: 3,
+  content: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 22,
   },
-  desktopPanel: { paddingHorizontal: 32, paddingTop: 24, paddingBottom: 32, gap: 21 },
-  formRow: { gap: 10 },
-  label: { color: '#27493B', fontSize: 15, lineHeight: 26, fontWeight: '700' },
+  formStack: { flexShrink: 1, minHeight: 0, gap: 12 },
+  hero: { flexShrink: 1, minHeight: 0 },
+  mascot: { flexShrink: 1, minHeight: 0 },
+  card: { padding: 20, gap: 18, borderRadius: 20 },
+  formRow: { gap: 8 },
+  label: { color: '#294B3D', fontSize: 15, fontWeight: '700' },
   field: {
-    minHeight: 54, flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#D6E1D9', backgroundColor: '#F7F9F6', borderRadius: 13, paddingLeft: 14,
+    height: 52,
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderColor: '#E2E8E4',
+    backgroundColor: '#FBFCFA',
+    borderRadius: 14,
+    paddingHorizontal: 14,
   },
-  focusedField: {
-    borderColor: '#2A6C54', backgroundColor: colors.surface,
-    ...Platform.select({ web: { outlineColor: '#D5E9DE', outlineStyle: 'solid' as const, outlineWidth: 3, outlineOffset: 1 } }),
+  inputIcon: { width: 20, height: 20, tintColor: '#789083' },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    height: '100%',
+    paddingHorizontal: 10,
+    color: colors.text,
+    fontSize: 16,
+    ...Platform.select({
+      web: {
+        outlineWidth: 0,
+        outlineColor: 'transparent',
+        outlineStyle: 'none' as any,
+      },
+    }),
   },
-  leadingIcon: { width: 20, height: 20, tintColor: '#637F71' },
-  placeholder: { color: '#687C71' },
-  input: { flex: 1, minWidth: 0, minHeight: 52, paddingHorizontal: 10, paddingVertical: 9, color: colors.text, fontSize: 16 },
-  webInput: { outlineStyle: 'solid', outlineWidth: 0 },
-  reveal: { width: 44, minHeight: 48, marginRight: 4, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  revealPressed: { backgroundColor: colors.tint },
-  eyeIcon: { width: 21, height: 21, tintColor: '#4F6D5F' },
-  eyeSlash: { position: 'absolute', width: 23, height: 2, borderRadius: 1, backgroundColor: '#4F6D5F', transform: [{ rotate: '-44deg' }] },
-  revealText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
-  submit: { flexDirection: 'row', gap: 10, minHeight: 54, borderRadius: 13, backgroundColor: '#1C654E' },
-  submitDisabled: { backgroundColor: '#39745F' },
-  submitPressed: { backgroundColor: '#144D3A' },
-  submitText: { fontSize: 18, lineHeight: 29 },
-  arrow: { color: colors.primaryText, fontSize: 23, lineHeight: 28 },
-  privacy: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
-  privacyIcon: { width: 15, height: 15, tintColor: '#657C70' },
-  privacyText: { flexShrink: 1, textAlign: 'center', color: '#526A5E', fontSize: 13, lineHeight: 23 },
-  install: { gap: 8 },
-  installButton: { minHeight: 44, padding: 8, alignItems: 'center', justifyContent: 'center', borderColor: colors.border, borderWidth: 1, borderRadius: 12 },
-  installHelp: { gap: 6, padding: 12, backgroundColor: colors.tintLight, borderRadius: 12 },
-  error: { color: colors.problem, backgroundColor: '#FFF1F2', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, lineHeight: 24 },
+  reveal: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  revealPressed: { opacity: 0.7 },
+  eyeIcon: { width: 22, height: 22 },
+  submitButton: {
+    height: 52,
+    minHeight: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1D684D',
+    marginTop: 6,
+  },
+  submitButtonDisabled: { backgroundColor: colors.disabled, opacity: 0.8 },
+  submitButtonPressed: { backgroundColor: '#16533D', opacity: 0.9 },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  error: { color: colors.problem, fontSize: 14, textAlign: 'center' },
+  footer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: 14,
+  },
+  credit: { textAlign: 'center', fontSize: 12 },
 });
