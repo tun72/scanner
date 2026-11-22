@@ -38,7 +38,8 @@ describe('the scan screen', () => {
     const app = await renderRouter(routes);
 
     await fireEvent.press(await screen.findByText('နားလည်ပါပြီ'));
-    await fireEvent.press(await screen.findByText('အစာအိမ်ရောင်ခြင်း'));
+    await screen.findByLabelText('ဗိုက်နဲ့ မတည့်တဲ့ အစားအစာ');
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
     await fireEvent.press(screen.getByText('အချက်အလက် သိမ်းရန်'));
     await fireEvent.press(await screen.findByText('အစားအစာ စစ်ရန်'));
     await screen.findByTestId('camera');
@@ -108,6 +109,20 @@ describe('the scan screen', () => {
     expect(await screen.findByText('မှတ်တမ်းတွင် သိမ်းပြီးပါပြီ။')).toBeTruthy();
     expect(sent()[0]).toMatchObject({ kind: 'barcode', barcode: BARCODE });
     expect(fake.history.saved[0]?.thumbnail).toBeNull();
+  });
+
+  it('shows a saved food note as a reminder in the scan details', async () => {
+    const notes = 'နို့သောက်ရင် ဗိုက်အောင့်တတ်တယ်';
+    resetFake(savedProfile({ conditions: ['ibs'], notes }), [VERDICTS.safe]);
+    await renderRouter(routes, { initialUrl: '/scan' });
+    await screen.findByTestId('camera');
+
+    await scanBarcode();
+
+    expect(await screen.findByText('A gentle choice.')).toBeTruthy();
+    expect(sent()[0]?.profile).toEqual({ conditions: ['gerd', 'gastritis', 'peptic-ulcer'], notes });
+    await fireEvent.press(screen.getByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
+    expect(await screen.findByText(notes)).toBeTruthy();
   });
 
   it('says how long to wait over the scan limit and offers no retry', async () => {

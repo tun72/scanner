@@ -15,8 +15,6 @@ describe('the verdict card', () => {
       } },
     })} />);
 
-    expect(screen.getByText('အစားအစာ ခွဲခြားနိုင်မှု')).toBeTruthy();
-    expect(screen.getByText('အသင့်အတင့်')).toBeTruthy();
     expect(screen.getByText('ပုံတွင် မြင်ရ')).toBeTruthy();
     expect(screen.getByText('ပါဝင်နိုင်')).toBeTruthy();
     expect(screen.getByText('၃၂–၄၀ ဂရမ်')).toBeTruthy();
@@ -26,9 +24,11 @@ describe('the verdict card', () => {
 
   it('shows reported nutrition with its quantity and keeps older verdicts readable', async () => {
     const app = await render(<VerdictCard verdict={verdict({
+      flaggedIngredients: ['fat', 'lime', 'chilli'],
       details: { kind: 'product', product: { nutrition: { quantity: 'per 100 mL', calories: 0 }, allergens: ['chilli'] } },
     })} />);
     expect(screen.getByText('ဓာတ်မတည့်မှု သတိပြုရန်')).toBeTruthy();
+    expect(screen.getByText('chilli')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: '၀ ကီလိုကယ်လိုရီ · အသေးစိတ်' }));
     expect(screen.getByText('၀ ကီလိုကယ်လိုရီ ၁၀၀ မီလီလီတာလျှင် · Open Food Facts')).toBeTruthy();
     await app.unmount();
@@ -43,10 +43,9 @@ describe('the verdict card', () => {
     expect(badgeColour()).toBe('#B3261E');
     expect(screen.getByText('Spicy noodle soup')).toBeTruthy();
     expect(screen.getByText('chilli')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
-    expect(screen.getByText('အစာအိမ်အက်စစ် ပြန်တက်ခြင်း · ရှောင်ရန်')).toBeTruthy();
-    expect(screen.getByText('Chilli and a hot, acidic broth often bring on reflux.')).toBeTruthy();
     expect(screen.getByText('Ask for a mild broth without chilli.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
+    expect(screen.getByText('Chilli and a hot, acidic broth often bring on reflux.')).toBeTruthy();
     expect(screen.getByText(NOTICE)).toBeTruthy();
   });
 

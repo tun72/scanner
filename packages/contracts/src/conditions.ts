@@ -20,6 +20,9 @@ export const CONDITION_IDS = [
 export const ConditionIdSchema = z.enum(CONDITION_IDS);
 export type ConditionId = z.infer<typeof ConditionIdSchema>;
 
+/** Default topics for a stomach-focused food check, independent of any diagnosis. */
+export const STOMACH_CHECK_CONDITIONS = ['gerd', 'gastritis', 'peptic-ulcer'] as const satisfies readonly ConditionId[];
+
 /** English display labels. Other languages are not part of this slice. */
 export const CONDITION_LABELS: Readonly<Record<ConditionId, string>> = {
   gerd: 'Acid reflux (GERD)',

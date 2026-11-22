@@ -1,31 +1,25 @@
-import { MAX_NOTES_LENGTH, type ConditionId } from '@food-scanner/contracts';
+import { MAX_NOTES_LENGTH, STOMACH_CHECK_CONDITIONS } from '@food-scanner/contracts';
 import type { ProfileDraft, ProfileProblem, StomachProfile } from './stomach-profile.ts';
 
 /** What the profile screen shows: the draft so far, and the problem from the last save, if any. */
 export interface ProfileFormState extends ProfileDraft {
-  conditions: ConditionId[];
   problem: ProfileProblem | null;
 }
 
 export const PROBLEM_MESSAGES: Readonly<Record<ProfileProblem, string>> = {
   'notice-not-accepted': 'အသိပေးချက်ကို ဖတ်ပြီး အတည်ပြုပါ။',
-  'nothing-chosen': 'အခြေအနေတစ်ခု ရွေးပါ သို့မဟုတ် မှတ်စုရေးပါ။',
+  'nothing-chosen': 'အချက်အလက် သိမ်း၍ မရပါ။ ပြန်ကြိုးစားပါ။',
   'notes-too-long': `မှတ်စုတွင် စာလုံးရေ ${MAX_NOTES_LENGTH.toLocaleString('my-MM')} အထိ ရေးနိုင်သည်။`,
 };
 
-/** Starts the form from the saved profile when editing, or empty with the just-accepted notice when new. */
+/** Keeps the saved note and notice acceptance while using the default stomach check. */
 export function startForm(saved: StomachProfile | null, noticeAcceptedAt: string | null): ProfileFormState {
   return {
-    conditions: saved?.conditions ?? [],
+    conditions: STOMACH_CHECK_CONDITIONS,
     notes: saved?.notes ?? '',
     noticeAcceptedAt: saved?.noticeAcceptedAt ?? noticeAcceptedAt,
     problem: null,
   };
-}
-
-export function toggleCondition(form: ProfileFormState, condition: ConditionId): ProfileFormState {
-  const conditions = form.conditions.includes(condition) ? form.conditions.filter((id) => id !== condition) : [...form.conditions, condition];
-  return { ...form, conditions, problem: null };
 }
 
 export const changeNotes = (form: ProfileFormState, notes: string): ProfileFormState => ({ ...form, notes, problem: null });

@@ -10,6 +10,7 @@ const response = (finishReason = 'STOP') => Response.json({
   candidates: [{ finishReason, content: { parts: [{ text: JSON.stringify({
     isFood: true, foodName: 'Rice with cream', confidence: 'high',
     features: [{ kind: 'lactose', evidence: 'observed' }, { kind: 'spicy', evidence: 'possible' }],
+    suggestion: 'Ask for the chilli on the side.',
   }) }] } }],
   usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 30, thoughtsTokenCount: 5 },
 });
@@ -43,7 +44,8 @@ describe('Gemini food-only mode', () => {
       expect(result.statusCode).toBe(200);
       expect(result.json()).toMatchObject({
         foodName: 'Rice with cream', level: 'caution',
-        flaggedIngredients: ['Lactose-containing dairy', 'Personal triggers'],
+        flaggedIngredients: ['Lactose-containing dairy'],
+        tip: 'Ask for the chilli on the side.',
       });
       expect(fetcher).toHaveBeenCalledTimes(2);
       const [url, options] = fetcher.mock.calls[0]!;
@@ -52,6 +54,7 @@ describe('Gemini food-only mode', () => {
       expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
       expect(options?.headers).toMatchObject({ 'x-goog-api-key': 'fixture' });
       const body = String(options?.body);
+      expect(JSON.parse(body).systemInstruction.parts[0].text).toContain('Acid reflux (GERD), Gastritis, Stomach or duodenal ulcer');
       expect(body).not.toContain('Private notes sample');
       expect(body).not.toContain('lactose-intolerance');
       expect(body).not.toContain('installId');
@@ -67,8 +70,8 @@ describe('Gemini food-only mode', () => {
     const assess = createAssessFood({ judge: createGeminiFoodJudge({ apiKey: 'fixture', fetcher }), products: fakeProducts(), now: () => FIXED_NOW });
     const result = await assess({ ...barcodeScan(), locale: 'my-MM', profile: { conditions: ['lactose-intolerance'], notes: 'private test note' } });
     expect(result).toMatchObject({ kind: 'verdict', response: {
-      reasons: [expect.objectContaining({ condition: 'နို့သကြား မချေဖျက်နိုင်ခြင်း' }), expect.objectContaining({ condition: 'သင့်မှတ်စု' })],
-      flaggedIngredients: ['နို့သကြားပါသော နို့ထွက်ပစ္စည်းများ', 'သင်နှင့် မတည့်သော အစားအစာများ'], notice: expect.stringMatching(/[က-အ]/),
+      reasons: [expect.objectContaining({ condition: 'နို့သကြား မချေဖျက်နိုင်ခြင်း' })],
+      flaggedIngredients: ['နို့သကြားပါသော နို့ထွက်ပစ္စည်းများ'], notice: expect.stringMatching(/[က-အ]/),
     } });
     const body = String(fetcher.mock.calls[0]?.[1]?.body);
     expect(body).toContain('natural Burmese');

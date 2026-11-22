@@ -20,7 +20,7 @@ describe('preparing a photo scan', () => {
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
     const { request } = prepared.scan;
-    expect(request).toEqual({ kind: 'photo', photo: SCAN_PHOTO_BASE64, installId: INSTALL_ID, profile: { conditions: ['gastritis'] }, locale: 'my-MM' });
+    expect(request).toEqual({ kind: 'photo', photo: SCAN_PHOTO_BASE64, installId: INSTALL_ID, profile: { conditions: ['gerd', 'gastritis', 'peptic-ulcer'] }, locale: 'my-MM' });
     expect(Buffer.from(SCAN_PHOTO_BASE64, 'base64').subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
     expect(ScanRequestSchema.safeParse(request).success).toBe(true);
     expect(client.sent).toEqual([]);
@@ -54,7 +54,7 @@ describe('preparing a photo scan', () => {
       scanner(savedProfile({ conditions: [], notes: 'Onions upset me' })),
     );
 
-    expect(prepared.ok && prepared.scan.request.profile).toEqual({ conditions: [], notes: 'Onions upset me' });
+    expect(prepared.ok && prepared.scan.request.profile).toEqual({ conditions: ['gerd', 'gastritis', 'peptic-ulcer'], notes: 'Onions upset me' });
   });
 
   it('does not send a photo the phone could not convert', async () => {
@@ -87,7 +87,7 @@ describe('preparing a barcode scan', () => {
     expect(prepared).toEqual({
       ok: true,
       scan: {
-        request: { kind: 'barcode', barcode: '3017620422003', installId: INSTALL_ID, profile: { conditions: ['gastritis'] }, locale: 'my-MM' },
+        request: { kind: 'barcode', barcode: '3017620422003', installId: INSTALL_ID, profile: { conditions: ['gerd', 'gastritis', 'peptic-ulcer'] }, locale: 'my-MM' },
         thumbnail: null,
       },
     });

@@ -1,4 +1,4 @@
-import { burmeseVerdict, type VerdictResponse } from '@food-scanner/contracts';
+import { burmeseText, burmeseVerdict, type VerdictResponse } from '@food-scanner/contracts';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,9 +11,10 @@ type Range = { min: number; max: number };
 const number = (value: number) => value.toLocaleString('my-MM', { maximumFractionDigits: 1 });
 const rangeText = ({ min, max }: Range, unit: string) => `${number(min)}${min === max ? '' : '–' + number(max)} ${unit}`;
 
-export function VerdictCard({ verdict: savedVerdict, photo, onBack }: {
+export function VerdictCard({ verdict: savedVerdict, photo, note, onBack }: {
   verdict: VerdictResponse;
   photo?: ImageSourcePropType | undefined;
+  note?: string | undefined;
   onBack?: () => void;
 }) {
   const [sheet, setSheet] = useState<'scan' | 'calories' | null>(null);
@@ -39,8 +40,15 @@ export function VerdictCard({ verdict: savedVerdict, photo, onBack }: {
     return estimate ? [{ key, value: rangeText(estimate, 'ဂရမ်') }]
       : amount === undefined ? [] : [{ key, value: `${number(amount)} ဂရမ်` }];
   });
-  const flagged = verdict.flaggedIngredients;
-  const allergen = product?.allergens?.some(name => flagged.some(flag => flag.toLowerCase() === name.toLowerCase()));
+  const flagged = [...new Set(verdict.flaggedIngredients)].filter(name => name !== burmeseText('Personal triggers'));
+  const listedAllergens = new Set(product?.allergens?.map(name => name.toLowerCase()));
+  const isAllergen = (name: string) => listedAllergens.has(name.toLowerCase());
+  const highlighted = [...flagged].sort((a, b) => Number(isAllergen(b)) - Number(isAllergen(a))).slice(0, 2);
+  const reasons = [...new Set([...verdict.reasons]
+    .sort((a, b) => Number(b.severity === 'avoid') - Number(a.severity === 'avoid'))
+    .map(reason => reason.explanation))]
+    .filter(explanation => explanation !== burmeseText('Compare the ingredients with your own notes. This scan does not evaluate free-text notes.'));
+  const summary = advice ?? reasons[0] ?? look.line;
   const info = () => setSheet('scan');
 
   return (
@@ -67,27 +75,21 @@ export function VerdictCard({ verdict: savedVerdict, photo, onBack }: {
           ) : <Text style={shared.muted}>ကယ်လိုရီ မသိရသေးပါ</Text>}
         </View>
 
-        {(serving || photoDetails) && (
-          <View style={styles.stats}>
-            {serving && <GlassCard style={styles.stat}><Text style={shared.muted}>ပမာဏ</Text><Text style={styles.amount}>{serving}</Text></GlassCard>}
-            {photoDetails && <GlassCard style={styles.stat}><Text style={shared.muted}>အစားအစာ ခွဲခြားနိုင်မှု</Text><Text style={styles.amount}>{({ low: 'နိမ့်', medium: 'အသင့်အတင့်', high: 'မြင့်' })[photoDetails.confidence]}</Text></GlassCard>}
-          </View>
-        )}
-
         <GlassCard>
           <View style={styles.headingRow}>
             <Text testID="verdict-badge" style={[shared.heading, styles.title, { color: look.colour }]} accessibilityRole="header">{look.badge}</Text>
             <GlassIcon label="စစ်ဆေးချက် အသေးစိတ်" glyph="ⓘ" onPress={info} />
           </View>
-          {flagged.length > 0 && <>
-            <Text style={shared.heading}>{allergen ? 'ဓာတ်မတည့်မှု သတိပြုရန်' : 'စားသုံးရာတွင် သတိပြုရန်'}</Text>
+          <Text style={shared.body}>{summary}</Text>
+          {flagged.length > 0 && (
             <View style={styles.tags}>
-              {flagged.map(name => <Text key={name} style={styles.tag}>{name}</Text>)}
+              {highlighted.some(isAllergen) && <Text style={shared.muted}>ဓာတ်မတည့်မှု သတိပြုရန်</Text>}
+              {highlighted.map(name => <Text key={name} style={styles.tag}>{name}</Text>)}
             </View>
-          </>}
-          {verdict.level === 'unsure' && advice && <Text style={shared.body}>{advice}</Text>}
+          )}
         </GlassCard>
 
+        {serving && <Text style={shared.muted}>ပမာဏ · {serving}</Text>}
         {(product?.ingredientStatement || ingredients.length > 0) && (
           <GlassCard>
             <Text style={shared.heading}>ပါဝင်ပစ္စည်းများ</Text>
@@ -118,16 +120,20 @@ export function VerdictCard({ verdict: savedVerdict, photo, onBack }: {
       <Modal visible={sheet !== null} animationType={motion ? 'fade' : 'none'} presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
         <SafeAreaView style={styles.sheet}>
           <ScrollView contentContainerStyle={shared.screen}>
-            <Text style={shared.title} accessibilityRole="header">{sheet === 'calories' ? 'ကယ်လိုရီ' : 'စစ်ဆေးချက် အသေးစိတ်'}</Text>
+            <Text style={shared.title} accessibilityRole="header">{sheet === 'calories' ? 'ကယ်လိုရီ' : 'စားမယ်ဆိုရင်'}</Text>
             {sheet === 'calories' ? <Text style={shared.body}>{estimated ? `ဓာတ်ပုံထဲရှိ ပမာဏအတွက် ${energy} ခန့် ရှိသည်။` : `${energy} ${reported?.quantity ?? ''} · Open Food Facts`}</Text> : (
               <>
-                <Text style={shared.heading}>{look.badge}</Text>
-                <Text style={shared.body}>{look.line}</Text>
-                {verdict.reasons.map((reason, index) => <GlassCard key={`${reason.condition}-${index}`}>
-                  <Text style={shared.heading}>{reason.condition} · {VERDICT_LOOKS[reason.severity].badge}</Text>
-                  <Text style={shared.body}>{reason.explanation}</Text>
-                </GlassCard>)}
-                {advice && <Text style={shared.body}>{advice}</Text>}
+                <GlassCard>
+                  <Text style={shared.body}>{summary}</Text>
+                  {reasons.filter(reason => reason !== summary).slice(0, 2).map(reason => (
+                    <Text key={reason} style={shared.body}>{reason}</Text>
+                  ))}
+                  {flagged.length > 2 && <Text style={shared.muted}>{flagged.join('၊ ')}</Text>}
+                </GlassCard>
+                {note && <GlassCard>
+                  <Text style={shared.heading}>ကိုယ့်မှတ်စုနဲ့ တိုက်စစ်ပါ</Text>
+                  <Text style={shared.body}>{note}</Text>
+                </GlassCard>}
                 <Text style={shared.muted} testID="verdict-notice">{verdict.notice}</Text>
               </>
             )}
@@ -148,8 +154,6 @@ const styles = StyleSheet.create({
   title: { flexShrink: 1, minWidth: 0 },
   energy: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 23, backgroundColor: colors.primary, maxWidth: '100%' },
   energyText: { color: colors.primaryText, fontWeight: '700', fontSize: 13 },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stat: { flexGrow: 1, flexBasis: 125, padding: 12, gap: 3 },
   amount: { fontSize: 16, fontWeight: '700', color: colors.text },
   headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
