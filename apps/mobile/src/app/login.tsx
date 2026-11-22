@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   View,
   type ImageStyle,
   type TextInputInstance,
@@ -20,26 +19,16 @@ import { colors, shared } from '../theme.ts';
 import { GlassBackground, GlassCard } from '../ui/glass.tsx';
 import { MascotScene } from '../ui/mascot-scene.tsx';
 
-type LoginField = 'rollNumber' | 'password';
-
 export default function LoginScreen() {
   const safeArea = useSafeAreaInsets();
+  const rollNumberInput = useRef<TextInputInstance>(null);
   const passwordInput = useRef<TextInputInstance>(null);
-  const [, setFocusedField] = useState<LoginField>();
   const [rollNumber, setRollNumber] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const disabled = submitting || !rollNumber.trim() || !password;
-
-  const clearFocus = (field: LoginField) => {
-    setFocusedField(current => (current === field ? undefined : current));
-  };
-
-  const dismissKeyboard = () => {
-    Keyboard.dismiss();
-  };
 
   const submit = async () => {
     if (disabled) return;
@@ -65,133 +54,137 @@ export default function LoginScreen() {
 
   return (
     <GlassBackground>
-      <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
-        <View
-          testID="sign-in-layout"
-          style={[
-            styles.content,
-            {
-              paddingTop: safeArea.top + 8,
-              paddingBottom: Math.max(safeArea.bottom, 12),
-            },
-          ]}
-        >
-          <View style={styles.formStack}>
-            <View style={styles.hero}>
-              <View testID="sign-in-mascot" pointerEvents="none" style={styles.mascot}>
-                <MascotScene style={styles.mascot} />
+      {Platform.OS !== 'web' && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={Keyboard.dismiss}
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      )}
+      <View
+        testID="sign-in-layout"
+        style={[
+          styles.content,
+          {
+            paddingTop: safeArea.top + 8,
+            paddingBottom: Math.max(safeArea.bottom, 12),
+          },
+        ]}
+      >
+        <View style={styles.formStack}>
+          <View style={styles.hero}>
+            <View testID="sign-in-mascot" pointerEvents="none" style={styles.mascot}>
+              <MascotScene style={styles.mascot} />
+            </View>
+          </View>
+          <GlassCard testID="sign-in-card" style={styles.card}>
+            <View style={styles.formRow}>
+              <Text style={styles.label}>Student ID</Text>
+              <View style={styles.field}>
+                <Image
+                  source={require('../../assets/login/student.png')}
+                  style={styles.inputIcon as ImageStyle}
+                  resizeMode="contain"
+                />
+                <TextInput
+                  ref={rollNumberInput}
+                  value={rollNumber}
+                  onChangeText={text => setRollNumber(text.toUpperCase())}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  autoComplete="username"
+                  accessibilityLabel="ခုံအမှတ်"
+                  maxLength={50}
+                  style={styles.input}
+                  placeholder="UCSKT-22028"
+                  placeholderTextColor="#A0ADA6"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => passwordInput.current?.focus()}
+                />
               </View>
             </View>
-            <GlassCard testID="sign-in-card" style={styles.card}>
-              <View style={styles.formRow}>
-                <Text style={styles.label}>Student ID</Text>
-                <View style={styles.field}>
+
+            <View style={styles.formRow}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.field}>
+                <Image
+                  source={require('../../assets/login/lock.png')}
+                  style={styles.inputIcon as ImageStyle}
+                  resizeMode="contain"
+                />
+                <TextInput
+                  ref={passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry={!visible}
+                  autoComplete="current-password"
+                  accessibilityLabel="စကားဝှက်"
+                  maxLength={128}
+                  style={styles.input}
+                  placeholder="စကားဝှက်ထည့်ပါ"
+                  placeholderTextColor="#A0ADA6"
+                  returnKeyType="go"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => void submit()}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
+                  onPress={() => setVisible(current => !current)}
+                  style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}
+                  hitSlop={8}
+                >
                   <Image
-                    source={require('../../assets/login/student.png')}
-                    style={styles.inputIcon as ImageStyle}
+                    source={
+                      visible
+                        ? require('../../assets/login/eye.png')
+                        : require('../../assets/login/eye-off.png')
+                    }
+                    style={[styles.eyeIcon as ImageStyle, { tintColor: visible ? colors.primary : '#789083' }]}
                     resizeMode="contain"
                   />
-                  <TextInput
-                    value={rollNumber}
-                    onChangeText={text => setRollNumber(text.toUpperCase())}
-                    onFocus={() => setFocusedField('rollNumber')}
-                    onBlur={() => clearFocus('rollNumber')}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    autoComplete="username"
-                    accessibilityLabel="ခုံအမှတ်"
-                    maxLength={50}
-                    style={styles.input}
-                    placeholder="UCSKT-22028"
-                    placeholderTextColor="#A0ADA6"
-                    returnKeyType="next"
-                    submitBehavior="submit"
-                    onSubmitEditing={() => passwordInput.current?.focus()}
-                  />
-                </View>
+                </Pressable>
               </View>
+            </View>
 
-              <View style={styles.formRow}>
-                <Text style={styles.label}>Password</Text>
-                <View style={styles.field}>
-                  <Image
-                    source={require('../../assets/login/lock.png')}
-                    style={styles.inputIcon as ImageStyle}
-                    resizeMode="contain"
-                  />
-                  <TextInput
-                    ref={passwordInput}
-                    value={password}
-                    onChangeText={setPassword}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => clearFocus('password')}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry={!visible}
-                    autoComplete="current-password"
-                    accessibilityLabel="စကားဝှက်"
-                    maxLength={128}
-                    style={styles.input}
-                    placeholder="စကားဝှက်ထည့်ပါ"
-                    placeholderTextColor="#A0ADA6"
-                    returnKeyType="go"
-                    submitBehavior="submit"
-                    onSubmitEditing={() => void submit()}
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
-                    onPress={() => setVisible(current => !current)}
-                    style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}
-                    hitSlop={8}
-                  >
-                    <Image
-                      source={
-                        visible
-                          ? require('../../assets/login/eye.png')
-                          : require('../../assets/login/eye-off.png')
-                      }
-                      style={[styles.eyeIcon as ImageStyle, { tintColor: visible ? colors.primary : '#789083' }]}
-                      resizeMode="contain"
-                    />
-                  </Pressable>
-                </View>
-              </View>
+            {error && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {error}
+              </Text>
+            )}
 
-              {error && (
-                <Text accessibilityRole="alert" style={styles.error}>
-                  {error}
-                </Text>
-              )}
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="အကောင့်ဝင်ရန်"
-                disabled={disabled}
-                onPress={() => void submit()}
-                style={({ pressed }) => [
-                  styles.submitButton,
-                  disabled && styles.submitButtonDisabled,
-                  pressed && !disabled && styles.submitButtonPressed,
-                ]}
-              >
-                <Text style={styles.submitButtonText}>
-                  {submitting ? 'အကောင့်ဝင်နေသည်…' : 'အကောင့်ဝင်ရန် →'}
-                </Text>
-              </Pressable>
-            </GlassCard>
-          </View>
-
-          <View style={styles.footer}>
-            <PrivacyPolicyLink inline />
-            <Text style={[shared.muted, styles.credit]}>
-              <Link href="https://rive.app/marketplace/28761-54484-sobo/">Sobo by Patgrivet</Link>
-              {' · '}
-              <Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
-            </Text>
-          </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="အကောင့်ဝင်ရန်"
+              disabled={disabled}
+              onPress={() => void submit()}
+              style={({ pressed }) => [
+                styles.submitButton,
+                disabled && styles.submitButtonDisabled,
+                pressed && !disabled && styles.submitButtonPressed,
+              ]}
+            >
+              <Text style={styles.submitButtonText}>
+                {submitting ? 'အကောင့်ဝင်နေသည်…' : 'အကောင့်ဝင်ရန် →'}
+              </Text>
+            </Pressable>
+          </GlassCard>
         </View>
-      </TouchableWithoutFeedback>
+
+        <View style={styles.footer}>
+          <PrivacyPolicyLink inline />
+          <Text style={[shared.muted, styles.credit]}>
+            <Link href="https://rive.app/marketplace/28761-54484-sobo/">Sobo by Patgrivet</Link>
+            {' · '}
+            <Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
+          </Text>
+        </View>
+      </View>
     </GlassBackground>
   );
 }
