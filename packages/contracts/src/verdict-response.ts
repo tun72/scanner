@@ -13,6 +13,10 @@ export const VerdictReasonSchema = z.object({
   condition: z.string().min(1),
   severity: ConcernSeveritySchema,
   explanation: z.string().min(1),
+  foodEvidence: z.object({
+    item: z.string().min(1).max(100),
+    certainty: z.enum(['observed', 'possible']),
+  }).optional().catch(undefined),
 });
 export type VerdictReason = z.infer<typeof VerdictReasonSchema>;
 

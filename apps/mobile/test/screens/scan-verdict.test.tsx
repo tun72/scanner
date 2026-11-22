@@ -38,7 +38,7 @@ describe('the scan screen', () => {
     const app = await renderRouter(routes);
 
     await fireEvent.press(await screen.findByText('နားလည်ပါပြီ'));
-    await screen.findByLabelText('ဗိုက်နဲ့ မတည့်တဲ့ အစားအစာ');
+    await screen.findByLabelText('Optional Note');
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
     await fireEvent.press(screen.getByText('အချက်အလက် သိမ်းရန်'));
     await fireEvent.press(await screen.findByText('အစားအစာ စစ်ရန်'));

@@ -41,6 +41,7 @@ function toResponse(verdict: Verdict, source: VerdictResponse['source'], foodNam
       condition: labelForTarget(concern.about),
       severity: concern.severity,
       explanation: concern.explanation.trim(),
+      ...(concern.foodEvidence && { foodEvidence: concern.foodEvidence }),
     })),
     flaggedIngredients: unique(verdict.concerns.map((concern) => concern.trigger.trim())),
     ...(verdict.tip === undefined ? {} : { tip: verdict.tip }),
