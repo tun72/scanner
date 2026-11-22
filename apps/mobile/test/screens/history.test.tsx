@@ -51,7 +51,7 @@ describe('scan history', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'စစ်ဆေးချက် အသေးစိတ်' }));
     expect(await screen.findByText(NOTICE)).toBeTruthy();
     expect(screen.getByText('Chilli and a hot, acidic broth often bring on reflux.')).toBeTruthy();
-    expect(screen.getByText('Ask for a mild broth without chilli.')).toBeTruthy();
+    expect(screen.getByText('စားမယ်ဆိုရင်')).toBeTruthy();
     expect(sent()).toEqual([]);
   });
 

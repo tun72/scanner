@@ -58,9 +58,9 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
           </Stack.Protected>
           <Stack.Protected guard={session !== null}>
-            <Stack.Screen name="index" options={{ headerBackVisible: false, title: 'အစားအသောက်စစ်ဆေးရေး' }} />
+            <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="notice" options={{ title: 'မစမီ သိထားရန်', headerBackVisible: false }} />
-            <Stack.Screen name="profile" options={{ title: 'ကျန်းမာရေးအချက်အလက်' }} />
+            <Stack.Screen name="profile" options={{ title: 'အစားအစာ မှတ်စု' }} />
             <Stack.Screen name="scan" options={{ headerShown: false }} />
             <Stack.Screen name="history/index" options={{ title: 'မှတ်တမ်း' }} />
             <Stack.Screen name="history/[id]" options={{ headerShown: false }} />

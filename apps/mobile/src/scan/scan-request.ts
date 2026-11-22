@@ -1,4 +1,4 @@
-import { ScanRequestSchema, type ScanRequest } from '@food-scanner/contracts';
+import { ScanRequestSchema, STOMACH_CHECK_CONDITIONS, type ScanRequest } from '@food-scanner/contracts';
 import type { StomachProfile } from '../profile/stomach-profile.ts';
 
 /** The language the verdict text is written in. Use Myanmar Unicode for every new scan. */
@@ -23,11 +23,11 @@ export type ScanInput = { kind: 'photo'; photo: string } | { kind: 'barcode'; ba
  * so a request the API would refuse is never sent. Returns null when it fails the schema.
  */
 export function buildScanRequest(input: ScanInput, scanner: Scanner): ScanRequest | null {
-  const { conditions, notes } = scanner.profile;
+  const { notes } = scanner.profile;
   const checked = ScanRequestSchema.safeParse({
     ...input,
     installId: scanner.installId,
-    profile: { conditions, ...(notes === undefined ? {} : { notes }) },
+    profile: { conditions: STOMACH_CHECK_CONDITIONS, ...(notes === undefined ? {} : { notes }) },
     locale: SCAN_LOCALE,
   });
   return checked.success ? checked.data : null;

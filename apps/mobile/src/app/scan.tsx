@@ -147,7 +147,7 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
           <ScrollView contentContainerStyle={[shared.screen, { paddingTop: insets.top + 16 }]}>
             <GlassCard>
               <Text style={shared.title} accessibilityRole="header">ဓာတ်ပုံ အတည်ပြုရန်</Text>
-              <Text style={shared.body}>အစားအစာကို ခွဲခြားရန် ဤပုံကို Google Gemini သို့ ပို့မည်။ လူ၊ လိပ်စာနှင့် ကိုယ်ရေးအချက်အလက်များ မပါကြောင်း စစ်ပါ။</Text>
+              <Text style={shared.body}>စစ်ဆေးဖို့ ဒီပုံကို ပေးပို့ပါမယ်။ လူ၊ လိပ်စာနဲ့ ကိုယ်ရေးအချက်အလက်တွေ မပါစေပါနဲ့။</Text>
               <Image source={{ uri: `data:image/jpeg;base64,${request.photo}` }} style={{ width: '100%', height: 220 }} resizeMode="contain" accessibilityLabel="စစ်ဆေးမည့် ဓာတ်ပုံ" />
             </GlassCard>
             <Button label="အစားအစာပုံသာ ဖြစ်ကြောင်း အတည်ပြုပြီး စစ်ရန်" onPress={() => void send({ ...scan, request })} />
@@ -163,7 +163,8 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
       return (
         <GlassBackground>
           <ScrollView contentContainerStyle={{ paddingTop: insets.top, paddingBottom: insets.bottom + 18 }}>
-            <VerdictCard verdict={phase.verdict} photo={phase.photo ? { uri: `data:image/jpeg;base64,${phase.photo}` } : undefined} onBack={done} />
+            <VerdictCard verdict={phase.verdict} photo={phase.photo ? { uri: `data:image/jpeg;base64,${phase.photo}` } : undefined}
+              note={scanner.profile.notes} onBack={done} />
             <View style={styles.resultActions}>
               <Text style={shared.muted}>
                 {phase.saved === 'saving' ? 'မှတ်တမ်းတွင် သိမ်းနေသည်…' : phase.saved === 'saved' ? 'မှတ်တမ်းတွင် သိမ်းပြီးပါပြီ။' : "ဤရလဒ်ကို သိမ်း၍ မရပါ။"}

@@ -1,6 +1,7 @@
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activeSession, signOut } from '../account/session.ts';
 import type { ScanSummary } from '../history/scan-history.ts';
 import { VERDICT_LOOKS } from '../history/verdict-look.ts';
@@ -11,6 +12,7 @@ import { GlassBackground, GlassCard } from '../ui/glass.tsx';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const session = activeSession();
   const [profile, setProfile] = useState<StomachProfile | null | undefined>(undefined);
   const [recent, setRecent] = useState<ScanSummary[]>([]);
@@ -42,8 +44,7 @@ export default function HomeScreen() {
 
   return (
     <GlassBackground>
-      <ScrollView contentContainerStyle={shared.screen}>
-        <Text style={shared.title} accessibilityRole="header">အစားအစာ စစ်ဆေးရန်</Text>
+      <ScrollView contentContainerStyle={[shared.screen, { paddingTop: 16 + insets.top, paddingBottom: 32 + insets.bottom }]}>
         <View style={styles.actions}>
           <Pressable style={({ pressed }) => [styles.tile, styles.photoTile, pressed && styles.pressed]} accessibilityRole="button"
             onPress={() => session ? scan('photo') : router.push('/scan')}>
