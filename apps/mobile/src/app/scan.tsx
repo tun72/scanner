@@ -150,7 +150,7 @@ function Scanning({ scanner, initialMode }: { scanner: Scanner; initialMode?: 'p
               <Text style={shared.body}>စစ်ဆေးဖို့ ဒီပုံကို ပေးပို့ပါမယ်။ လူ၊ လိပ်စာနဲ့ ကိုယ်ရေးအချက်အလက်တွေ မပါစေပါနဲ့။</Text>
               <Image source={{ uri: `data:image/jpeg;base64,${request.photo}` }} style={{ width: '100%', height: 220 }} resizeMode="contain" accessibilityLabel="စစ်ဆေးမည့် ဓာတ်ပုံ" />
             </GlassCard>
-            <Button label="အစားအစာပုံသာ ဖြစ်ကြောင်း အတည်ပြုပြီး စစ်ရန်" onPress={() => void send({ ...scan, request })} />
+            <Button label="အတည်ပြုပြီး စစ်ရန်" onPress={() => void send({ ...scan, request })} />
             <Button label="အခြားပုံ ရွေးရန်" onPress={backToCamera} secondary />
           </ScrollView>
         </GlassBackground>
