@@ -1,55 +1,39 @@
-import { Link } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
+import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccountRequestError, signIn } from '../account/session.ts';
 import { PrivacyPolicyLink } from '../profile/privacy-policy-link.tsx';
 import { colors, shared } from '../theme.ts';
-import { GlassBackground } from '../ui/glass.tsx';
-import { MascotScene } from '../ui/mascot-scene.tsx';
 
 type LoginField = 'rollNumber' | 'password';
 const isWeb = Platform.OS === 'web';
+const icons = {
+  student: require('../../assets/login/student.png'),
+  lock: require('../../assets/login/lock.png'),
+  eye: require('../../assets/login/eye.png'),
+};
 
 export default function LoginScreen() {
   const safeArea = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const passwordInput = useRef<TextInputInstance>(null);
-  const [editing, setEditing] = useState(false);
   const [focusedField, setFocusedField] = useState<LoginField>();
   const [rollNumber, setRollNumber] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const desktop = width >= 820 && (isWeb || (height >= 560 && !editing));
-  // The browser viewport can get shorter while typing. Keep the form's layout tied to its width.
-  const compact = isWeb ? width <= 340 : editing || height - safeArea.top - safeArea.bottom < 600;
+  const desktop = width >= 768;
   const disabled = submitting || !rollNumber.trim() || !password;
-
-  useEffect(() => {
-    if (isWeb) return;
-    const show = Keyboard.addListener('keyboardDidShow', () => setEditing(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      // iOS can briefly hide the keyboard while switching between the sign-in fields.
-      if (Platform.OS !== 'ios' || !TextInput.State.currentlyFocusedInput()) setEditing(false);
-    });
-    return () => { show.remove(); hide.remove(); };
-  }, []);
 
   const clearFocus = (field: LoginField) => {
     setFocusedField(current => current === field ? undefined : current);
   };
 
-  const dismissKeyboard = () => {
-    const wasVisible = Keyboard.isVisible();
-    Keyboard.dismiss();
-    if (!wasVisible) setEditing(false);
-  };
-
   const submit = async () => {
     if (disabled) return;
-    dismissKeyboard();
+    Keyboard.dismiss();
     setError(undefined);
     setSubmitting(true);
     try {
@@ -64,84 +48,62 @@ export default function LoginScreen() {
     }
   };
 
-  const content = (
-    <View testID="sign-in-layout" style={[
-      styles.content,
-      isWeb && styles.webContent,
-      desktop && styles.desktopContent,
-      (editing || (isWeb && !desktop)) && styles.alignTop,
-      { paddingTop: safeArea.top + (compact ? 8 : 24), paddingBottom: Math.max(safeArea.bottom, 16) },
-    ]}>
-      <View style={[styles.panel, desktop && styles.desktopPanel]}>
-        <View style={[styles.brand, desktop && styles.desktopBrand, compact && styles.compactBrand]}>
-          <Text style={[styles.wordmark, desktop && styles.desktopWordmark]}>အစားအသောက်စစ်ဆေးရေး</Text>
-          <View testID="sign-in-mascot" pointerEvents="none" style={[
-            styles.mascot, desktop && styles.desktopMascot, compact && styles.compactMascot,
-          ]}>
-            <MascotScene style={styles.scene} />
-          </View>
-        </View>
-        <View style={[styles.form, desktop && styles.desktopForm, compact && styles.compactForm]}>
-          <View style={styles.formHeading}>
-            <Text style={shared.title} accessibilityRole="header">အကောင့်ဝင်ရန်</Text>
-          </View>
-          <View style={styles.formRow}>
-            <Text style={styles.label}>ခုံအမှတ်</Text>
-            <View style={[styles.field, focusedField === 'rollNumber' && styles.focusedField]}>
-              <TextInput value={rollNumber} onChangeText={setRollNumber}
-                onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
-                autoCapitalize="none" autoCorrect={false}
-                autoComplete="username" accessibilityLabel="ခုံအမှတ်" maxLength={50} style={[styles.input, isWeb && styles.webInput]}
-                returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
-            </View>
-          </View>
-          <View style={styles.formRow}>
-            <Text style={styles.label}>စကားဝှက်</Text>
-            <View style={[styles.field, focusedField === 'password' && styles.focusedField]}>
-              <TextInput ref={passwordInput} value={password} onChangeText={setPassword}
-                onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
-                autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
-                accessibilityLabel="စကားဝှက်" maxLength={128} style={[styles.input, isWeb && styles.webInput]}
-                returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
-              <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
-                onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
-                <Text style={styles.revealText} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                  {visible ? 'ဖျောက်' : 'ပြ'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-          {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled, busy: submitting }} disabled={disabled}
-            onPress={() => void submit()} style={({ pressed }) => [
-              shared.button, styles.submit, compact && styles.compactButton, pressed && styles.submitPressed,
-              disabled && shared.buttonDisabled,
-            ]}>
-            <Text style={shared.buttonText}>{submitting ? 'ဝင်နေသည်…' : 'အကောင့်ဝင်ရန်'}</Text>
-          </Pressable>
-          {isWeb && <InstallApp />}
-        </View>
-      </View>
-      {!compact && <View style={styles.footer}>
-        <PrivacyPolicyLink inline />
-        <Text style={[shared.muted, styles.credit]}>
-          <Link href="https://rive.app/marketplace/28761-54484-sobo/">ဆိုဘို · Patgrivet</Link>
-          {' · '}<Link href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</Link>
-        </Text>
-      </View>}
-      {editing && <Pressable style={styles.dismissArea} onPress={dismissKeyboard} accessible={false}
-        accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />}
-    </View>
-  );
-
   return (
-    <GlassBackground>
-      {isWeb ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {content}
-        </ScrollView>
-      ) : content}
-    </GlassBackground>
+    <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <LinearGradient colors={['#E5EFE7', '#F5F6EF', '#F1F2EB']} locations={[0, 0.44, 1]}
+        style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <View testID="sign-in-layout" style={[
+          styles.content, desktop && styles.desktopContent,
+          { paddingTop: safeArea.top + (desktop ? 36 : 42), paddingBottom: safeArea.bottom + 24 },
+        ]}>
+          <View testID="sign-in-card" style={[styles.panel, desktop && styles.desktopPanel]}>
+            <View style={styles.formRow}>
+              <Text style={styles.label}>ခုံအမှတ်</Text>
+              <View style={[styles.field, focusedField === 'rollNumber' && styles.focusedField]}>
+                <Image source={icons.student} style={styles.leadingIcon} aria-hidden />
+                <TextInput placeholder="ဥပမာ UCSKT-00000" placeholderTextColor={styles.placeholder.color}
+                  value={rollNumber} onChangeText={setRollNumber}
+                  onFocus={() => setFocusedField('rollNumber')} onBlur={() => clearFocus('rollNumber')}
+                  autoCapitalize="none" autoCorrect={false}
+                  autoComplete="username" accessibilityLabel="ခုံအမှတ်" maxLength={50} style={[styles.input, isWeb && styles.webInput]}
+                  returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordInput.current?.focus()} />
+              </View>
+            </View>
+            <View style={styles.formRow}>
+              <Text style={styles.label}>စကားဝှက်</Text>
+              <View style={[styles.field, focusedField === 'password' && styles.focusedField]}>
+                <Image source={icons.lock} style={styles.leadingIcon} aria-hidden />
+                <TextInput placeholder="စကားဝှက် ထည့်ပါ" placeholderTextColor={styles.placeholder.color}
+                  ref={passwordInput} value={password} onChangeText={setPassword}
+                  onFocus={() => setFocusedField('password')} onBlur={() => clearFocus('password')}
+                  autoCapitalize="none" autoCorrect={false} secureTextEntry={!visible} autoComplete="current-password"
+                  accessibilityLabel="စကားဝှက်" maxLength={128} style={[styles.input, isWeb && styles.webInput]}
+                  returnKeyType="go" submitBehavior="submit" onSubmitEditing={() => void submit()} />
+                <Pressable accessibilityRole="button" accessibilityLabel={visible ? 'စကားဝှက် ဖျောက်ရန်' : 'စကားဝှက် ပြရန်'}
+                  onPress={() => setVisible(current => !current)} style={({ pressed }) => [styles.reveal, pressed && styles.revealPressed]}>
+                  <Image source={icons.eye} style={styles.eyeIcon} aria-hidden />
+                  {visible && <View style={styles.eyeSlash} pointerEvents="none" />}
+                </Pressable>
+              </View>
+            </View>
+            {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+            <Pressable accessibilityRole="button" accessibilityLabel={submitting ? 'ဝင်နေသည်…' : 'အကောင့်ဝင်ရန်'}
+              accessibilityState={{ disabled, busy: submitting }} disabled={disabled} onPress={() => void submit()}
+              style={({ pressed }) => [shared.button, styles.submit, disabled && styles.submitDisabled, pressed && styles.submitPressed]}>
+              <Text style={[shared.buttonText, styles.submitText]}>{submitting ? 'ဝင်နေသည်…' : 'အကောင့်ဝင်ရန်'}</Text>
+              {!submitting && <Text style={styles.arrow} aria-hidden>→</Text>}
+            </Pressable>
+            <View style={styles.privacy}>
+              <Image source={icons.lock} style={styles.privacyIcon} aria-hidden />
+              <Text style={styles.privacyText}>သင့်စစ်ဆေးချက်များကို သင့်အကောင့်တွင် သိမ်းထားပါသည်။</Text>
+            </View>
+          </View>
+          {isWeb && <InstallApp />}
+          <PrivacyPolicyLink inline />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -182,55 +144,45 @@ function InstallApp() {
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#F3F5EE' },
   scrollContent: { flexGrow: 1 },
-  content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 18 },
-  webContent: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto' },
-  desktopContent: { maxWidth: 980, paddingHorizontal: 24 },
-  alignTop: { justifyContent: 'flex-start' },
-  panel: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 28, overflow: 'hidden' },
-  desktopPanel: { flexDirection: 'row' },
-  brand: {
-    paddingHorizontal: 22, minHeight: 144, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: 10, backgroundColor: '#D7EBDF',
+  content: { flexGrow: 1, width: '100%', maxWidth: 504, alignSelf: 'center', paddingHorizontal: 20, gap: 12 },
+  desktopContent: { justifyContent: 'center' },
+  panel: {
+    backgroundColor: colors.surface, borderColor: '#CBDDD0', borderWidth: 1, borderRadius: 28,
+    padding: 20, gap: 20,
+    shadowColor: '#243D2C', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.10, shadowRadius: 28, elevation: 3,
   },
-  desktopBrand: {
-    flex: 1, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between',
-    paddingTop: 48, paddingHorizontal: 38, paddingBottom: 24,
+  desktopPanel: { paddingHorizontal: 32, paddingTop: 24, paddingBottom: 32, gap: 21 },
+  formRow: { gap: 10 },
+  label: { color: '#27493B', fontSize: 15, lineHeight: 26, fontWeight: '700' },
+  field: {
+    minHeight: 54, flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: '#D6E1D9', backgroundColor: '#F7F9F6', borderRadius: 13, paddingLeft: 14,
   },
-  compactBrand: { minHeight: 58, paddingHorizontal: 16 },
-  wordmark: { color: colors.primaryPressed, fontSize: 22, lineHeight: 39, fontWeight: '700', flexShrink: 1 },
-  desktopWordmark: { fontSize: 34, lineHeight: 56 },
-  mascot: { width: 148, height: 128, flexShrink: 1 },
-  desktopMascot: { width: '100%', height: 240, alignSelf: 'center' },
-  compactMascot: { width: 64, height: 52 },
-  scene: { height: '100%' },
-  form: { padding: 24, gap: 16 },
-  desktopForm: { flex: 1, paddingHorizontal: 38, paddingVertical: 48, justifyContent: 'center', gap: 20 },
-  compactForm: { padding: 14, gap: 8 },
-  formHeading: { gap: 4 },
-  formRow: { gap: 6 },
-  label: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  field: { minHeight: 50, flexDirection: 'row', alignItems: 'stretch', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, borderRadius: 12 },
   focusedField: {
-    borderColor: colors.primary, backgroundColor: colors.surface,
-    ...Platform.select({ web: { outlineColor: '#D8E5D7', outlineStyle: 'solid' as const, outlineWidth: 3, outlineOffset: 1 } }),
+    borderColor: '#2A6C54', backgroundColor: colors.surface,
+    ...Platform.select({ web: { outlineColor: '#D5E9DE', outlineStyle: 'solid' as const, outlineWidth: 3, outlineOffset: 1 } }),
   },
-  input: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 14, paddingVertical: 8, color: colors.text, fontSize: 16 },
+  leadingIcon: { width: 20, height: 20, tintColor: '#637F71' },
+  placeholder: { color: '#687C71' },
+  input: { flex: 1, minWidth: 0, minHeight: 52, paddingHorizontal: 10, paddingVertical: 9, color: colors.text, fontSize: 16 },
   webInput: { outlineStyle: 'solid', outlineWidth: 0 },
-  reveal: { minHeight: 44, minWidth: 58, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  reveal: { width: 44, minHeight: 48, marginRight: 4, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   revealPressed: { backgroundColor: colors.tint },
+  eyeIcon: { width: 21, height: 21, tintColor: '#4F6D5F' },
+  eyeSlash: { position: 'absolute', width: 23, height: 2, borderRadius: 1, backgroundColor: '#4F6D5F', transform: [{ rotate: '-44deg' }] },
   revealText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
-  submit: { borderRadius: 12, marginTop: 2, minHeight: 54 },
-  compactButton: { minHeight: 48, paddingVertical: 9 },
-  submitPressed: { backgroundColor: colors.primaryPressed },
+  submit: { flexDirection: 'row', gap: 10, minHeight: 54, borderRadius: 13, backgroundColor: '#1C654E' },
+  submitDisabled: { backgroundColor: '#39745F' },
+  submitPressed: { backgroundColor: '#144D3A' },
+  submitText: { fontSize: 18, lineHeight: 29 },
+  arrow: { color: colors.primaryText, fontSize: 23, lineHeight: 28 },
+  privacy: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  privacyIcon: { width: 15, height: 15, tintColor: '#657C70' },
+  privacyText: { flexShrink: 1, textAlign: 'center', color: '#526A5E', fontSize: 13, lineHeight: 23 },
   install: { gap: 8 },
-  installButton: {
-    minHeight: 44, padding: 8, alignItems: 'center', justifyContent: 'center',
-    borderColor: colors.border, borderWidth: 1, borderRadius: 12,
-  },
+  installButton: { minHeight: 44, padding: 8, alignItems: 'center', justifyContent: 'center', borderColor: colors.border, borderWidth: 1, borderRadius: 12 },
   installHelp: { gap: 6, padding: 12, backgroundColor: colors.tintLight, borderRadius: 12 },
-  error: { color: colors.problem, backgroundColor: '#FFF1F2', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, lineHeight: 20 },
-  footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 14 },
-  credit: { textAlign: 'center', fontSize: 12 },
-  dismissArea: { flex: 1 },
+  error: { color: colors.problem, backgroundColor: '#FFF1F2', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, lineHeight: 24 },
 });
