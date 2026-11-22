@@ -112,6 +112,13 @@ export function createCloudHistory(pool: Pool, media: PrivateMedia) {
           UPDATE cloud_scans s SET deleted_at=now(), verdict=NULL, photo_state='none', photo_digest=NULL FROM removed r
           WHERE s.owner_id=$1 AND s.id=r.id RETURNING r.id,r.photo_state`, [owner, id],
         );
+        if (id === null) {
+          if (rows.length > 0) await db.query(
+            'INSERT INTO history_clear_log(owner_id,scan_count,ready_photo_count) VALUES($1,$2,$3)',
+            [owner, rows.length, rows.filter(row => row.photo_state === 'ready').length],
+          );
+          return;
+        }
         const photos = rows.filter(row => row.photo_state !== 'none').map(row => assetId(owner, row.id));
         if (photos.length > 0) await db.query(
           'INSERT INTO photo_deletion_queue(asset_id) SELECT unnest($1::text[]) ON CONFLICT DO NOTHING', [photos],

@@ -32,7 +32,7 @@ export default function NoticeScreen() {
           <Text style={shared.body}>
             စစ်ဆေးဖို့ အစားအစာပုံ ဒါမှမဟုတ် ကုန်ပစ္စည်းအချက်အလက်ကို ပေးပို့ပါတယ်။ ရေးထားတဲ့ မှတ်စုလည်း ပါပါတယ်။
           </Text>
-          <Text style={shared.body}>စစ်ဆေးချက်နဲ့ ပုံတွေကို မှတ်တမ်းကနေ ပြန်ကြည့်နိုင်ပြီး ဖျက်လို့လည်း ရပါတယ်။</Text>
+          <Text style={shared.body}>စစ်ဆေးချက်နဲ့ ပုံတွေကို မှတ်တမ်းကနေ ပြန်ကြည့်နိုင်ပါတယ်။ မှတ်တမ်းအားလုံး ရှင်းလိုက်ရင် သိမ်းထားပြီးသား ပုံတွေကို ဆက်သိမ်းထားပါမယ်။</Text>
           <PrivacyPolicyLink inline />
         </GlassCard>
         <Pressable style={shared.button} onPress={accept} accessibilityRole="button">
