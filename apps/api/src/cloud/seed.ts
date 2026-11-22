@@ -1,6 +1,9 @@
 import { LoginSchema } from '@food-scanner/contracts';
+import { loadEnv } from '../env.ts';
 import { seedMobileAccount } from './accounts.ts';
 import { createCloudDatabase, migrateCloudDatabase } from './database.ts';
+
+loadEnv();
 
 const url = process.env.DATABASE_URL;
 const name = process.env.SEED_USER_NAME?.trim();

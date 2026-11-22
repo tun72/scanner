@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createAssessFood } from './assessment/assess-food.ts';
 import { loadConfig } from './config.ts';
+import { loadEnv } from './env.ts';
 import { buildServer } from './http/server.ts';
 import { serveWebApp } from './http/web-app.ts';
 import { createClaudeFoodJudge } from './infrastructure/claude-food-judge.ts';
@@ -10,6 +11,8 @@ import { createAccounts } from './cloud/accounts.ts';
 import { createCloudDatabase, migrateCloudDatabase } from './cloud/database.ts';
 import { createCloudHistory } from './cloud/history.ts';
 import { createCloudinaryMedia } from './cloud/media.ts';
+
+loadEnv();
 
 // Wires the real parts together and starts listening. All decisions live in the modules above.
 const config = loadConfig(process.env);
