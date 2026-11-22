@@ -19,7 +19,7 @@ export type ApiConfig = CommonApiConfig & (
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_MODEL = 'claude-opus-5-5';
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 /** A verdict should arrive within about 10 seconds, so one slow call may not be retried many times. */
 const CLAUDE_TIMEOUT_MS = 15_000;

@@ -197,7 +197,7 @@ export function createGeminiFoodJudge({
       contents: [{ role: 'user', parts: [food] }],
       generationConfig: {
         maxOutputTokens: 4096, responseMimeType: 'application/json', responseJsonSchema,
-        ...(model === DEFAULT_GEMINI_MODEL && { thinkingConfig: { thinkingLevel: 'LOW' } }),
+        ...(model === 'gemini-3.8-flash' && { thinkingConfig: { thinkingLevel: 'LOW' } }),
       },
     });
     const result = await recognize(body, true);
