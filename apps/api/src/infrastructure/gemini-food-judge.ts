@@ -113,7 +113,7 @@ function draftFor(facts: FoodFacts, profile: ScanProfile, isPhoto: boolean): Ver
 type FoodInput = { inlineData: { mimeType: 'image/jpeg'; data: string } } | { text: string };
 type Recognition = Extract<JudgeResult, { ok: false }> | { facts: FoodFacts; usage: TokenUsage };
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRY_DELAY_MS = 2_500;
 const RETRYABLE_STATUSES = new Set([408, 500, 502, 503, 504]);
