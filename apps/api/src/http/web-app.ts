@@ -23,7 +23,7 @@ export function serveWebApp(server: FastifyInstance, root: string) {
   for (const route of ['/', '/login', '/notice', '/profile', '/scan', '/history', '/history/:id']) {
     server.get(route, (_, reply) => send(reply, 'index.html'));
   }
-  for (const file of ['app-icon.png', 'app-icon-192.png', 'favicon.ico', 'manifest.webmanifest']) {
+  for (const file of ['app-icon.png', 'app-icon-192.png', 'favicon.ico', 'manifest.webmanifest', 'push-worker.js']) {
     server.get('/' + file, (_, reply) => send(reply, file));
   }
 

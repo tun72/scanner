@@ -3,10 +3,12 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { createAccounts } from './accounts.ts';
 import type { CloudHistory } from './history.ts';
+import { pushSubscriptionSchema, type WebPush } from './web-push.ts';
 
 export interface CloudServices {
   accounts: ReturnType<typeof createAccounts>;
   history: CloudHistory;
+  push?: WebPush;
 }
 
 const idSchema = z.uuid();
@@ -52,6 +54,23 @@ export function registerCloudRoutes(app: FastifyInstance, cloud: CloudServices) 
       if (token) await cloud.accounts.revoke(token);
       return reply.code(204).send();
     });
+
+    const push = cloud.push;
+    if (push) {
+      const testLimit = routes.createRateLimit({ max: 8, timeWindow: 60_000, keyGenerator: req => `push-test:${req.ip}` });
+      routes.get('/v1/push/key', async (req, reply) => {
+        if (await requireOwner(cloud, req, reply)) return { publicKey: push.publicKey };
+      });
+      routes.post('/v1/push/test', { bodyLimit: 4096 }, async (req, reply) => {
+        if (!await requireOwner(cloud, req, reply)) return;
+        const limit = await testLimit(req);
+        if (!limit.isAllowed && limit.isExceeded) return reply.code(429).header('retry-after', limit.ttlInSeconds).send();
+        const input = pushSubscriptionSchema.safeParse(req.body);
+        if (!input.success) return invalid(reply);
+        const result = await push.sendTest(input.data);
+        return reply.code(result === 'sent' ? 204 : result === 'expired' ? 410 : 503).send();
+      });
+    }
 
     routes.get('/v1/history', async (req, reply) => {
       const owner = await requireOwner(cloud, req, reply);
