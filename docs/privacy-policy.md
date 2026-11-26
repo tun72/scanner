@@ -22,6 +22,6 @@ The production app connects to the Food Scanner API over HTTPS. In Gemini mode, 
 
 ## Your controls
 
-If you request a test notification in the web app, the browser shares a push subscription with the API for that request. The API uses it to send a generic message through the browser's push service. The browser keeps its subscription for future tests. You can turn off notifications in your device or browser settings.
+If you turn on daily notifications, the browser shares a push subscription with the API. The database stores it with your account ID so Scanner can send a generic message through the browser's push service while the app is closed. Turning off daily notifications in Scanner removes the subscription from the database. Scanner also removes subscriptions that the push service reports as expired.
 
 Use **Edit profile** to change the conditions and notes on this phone. In **History**, you can delete one scan or clear your account history. Deleting one scan removes access to it and schedules removal of its stored photo. Clearing your history removes access to all cleared scans and photos in the app. Uploaded photos stay in private Cloudinary storage. The database logs your account ID, the time of the clear, the number of scans cleared, and how many had a fully uploaded photo. Another phone reflects the deletion when it next syncs. You can sign out of each phone and revoke camera access in your phone's settings. To request removal of your account or retained photos, or to ask about your data, contact [Email address].

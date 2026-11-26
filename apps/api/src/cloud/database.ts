@@ -46,6 +46,10 @@ export async function migrateCloudDatabase(pool: Pool) {
       CREATE TABLE IF NOT EXISTS photo_deletion_queue (
         asset_id text PRIMARY KEY, attempt_after timestamptz NOT NULL DEFAULT now()
       );
+      CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+        endpoint text PRIMARY KEY, owner_id uuid NOT NULL REFERENCES mobile_accounts(id) ON DELETE CASCADE,
+        p256dh text NOT NULL, auth text NOT NULL, last_attempt_on date
+      );
       CREATE TABLE IF NOT EXISTS history_clear_log (
         id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_id uuid NOT NULL REFERENCES mobile_accounts(id),

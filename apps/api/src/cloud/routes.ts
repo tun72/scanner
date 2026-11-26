@@ -3,15 +3,19 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { createAccounts } from './accounts.ts';
 import type { CloudHistory } from './history.ts';
-import { pushSubscriptionSchema, type WebPush } from './web-push.ts';
+import { pushEndpointSchema, pushSubscriptionSchema, type WebPush } from './web-push.ts';
+import { authorizePushJob } from './push-scheduler.ts';
+import type { createPushSubscriptions } from './push-subscriptions.ts';
 
 export interface CloudServices {
   accounts: ReturnType<typeof createAccounts>;
   history: CloudHistory;
   push?: WebPush;
+  pushSubscriptions?: ReturnType<typeof createPushSubscriptions>;
 }
 
 const idSchema = z.uuid();
+const pushEndpointBody = z.object({ endpoint: pushEndpointSchema });
 const tokenOf = (request: FastifyRequest) => /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
 const invalid = (reply: FastifyReply) => reply.code(400).send({ message: 'Check your request and try again.' });
 const missing = (reply: FastifyReply) => reply.code(404).send({ message: 'This scan is unavailable.' });
@@ -69,6 +73,38 @@ export function registerCloudRoutes(app: FastifyInstance, cloud: CloudServices) 
         if (!input.success) return invalid(reply);
         const result = await push.sendTest(input.data);
         return reply.code(result === 'sent' ? 204 : result === 'expired' ? 410 : 503).send();
+      });
+    }
+
+    const subscriptions = cloud.pushSubscriptions;
+    if (subscriptions) {
+      routes.put('/v1/push/subscription', { bodyLimit: 4096 }, async (req, reply) => {
+        const owner = await requireOwner(cloud, req, reply);
+        if (!owner) return;
+        const input = pushSubscriptionSchema.safeParse(req.body);
+        if (!input.success) return invalid(reply);
+        await subscriptions.enable(owner, input.data);
+        return reply.code(204).send();
+      });
+      routes.post('/v1/push/subscription/status', { bodyLimit: 4096 }, async (req, reply) => {
+        const owner = await requireOwner(cloud, req, reply);
+        if (!owner) return;
+        const input = pushEndpointBody.safeParse(req.body);
+        if (!input.success) return invalid(reply);
+        return { enabled: await subscriptions.enabled(owner, input.data.endpoint) };
+      });
+      routes.delete('/v1/push/subscription', { bodyLimit: 4096 }, async (req, reply) => {
+        const owner = await requireOwner(cloud, req, reply);
+        if (!owner) return;
+        const input = pushEndpointBody.safeParse(req.body);
+        if (!input.success) return invalid(reply);
+        await subscriptions.disable(owner, input.data.endpoint);
+        return reply.code(204).send();
+      });
+      routes.post('/v1/push/daily', async (req, reply) => {
+        const action = await authorizePushJob(req.headers.authorization);
+        if (!action) return reply.code(401).send();
+        return action === 'check' ? { ready: true } : subscriptions.sendDaily();
       });
     }
 

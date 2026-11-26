@@ -13,6 +13,8 @@ Gemini food recognition is opt-in. Check availability where the app will be used
 
 For PWA test notifications, generate a VAPID pair with `npx web-push generate-vapid-keys`. Set `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, and `WEB_PUSH_SUBJECT` (a public HTTPS contact URL or a `mailto:` contact) on the backend. Keep the private key in the deployment environment and reuse the same pair across deploys so existing subscriptions keep working.
 
+The GitHub Actions workflow in `.github/workflows/daily-push.yml` calls the scheduler endpoint on Render around 7:45 p.m. Myanmar time. Its manual run checks access without sending messages. GitHub can delay scheduled runs or disable them after 60 days without repository activity.
+
 ## Set up the mobile account and private storage
 
 Use a staging database and Cloudinary account for the first end-to-end test. Neon PostgreSQL is the proposed database. Save its TLS connection string as `DATABASE_URL` and the Cloudinary API environment variable as `CLOUDINARY_URL` on the server. The API applies the cloud schema on startup. Keep those values in the server environment and use only the public API origin in Expo. [Neon connection options](https://neon.com/docs/connect/connect-from-any-app) · [Cloudinary authenticated media](https://cloudinary.com/documentation/control_access_to_media)

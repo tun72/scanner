@@ -12,6 +12,7 @@ import { createCloudDatabase, migrateCloudDatabase } from './cloud/database.ts';
 import { createCloudHistory } from './cloud/history.ts';
 import { createCloudinaryMedia } from './cloud/media.ts';
 import { createWebPush } from './cloud/web-push.ts';
+import { createPushSubscriptions } from './cloud/push-subscriptions.ts';
 
 loadEnv();
 
@@ -48,7 +49,7 @@ if (database) {
 const push = createWebPush(process.env);
 const cloud = database && cloudinaryUrl ? {
   accounts: createAccounts(database), history: createCloudHistory(database, createCloudinaryMedia(cloudinaryUrl)),
-  ...(push && { push }),
+  ...(push && { push, pushSubscriptions: createPushSubscriptions(database, push) }),
 } : undefined;
 const webRoot = process.env.WEB_ROOT?.trim();
 if (webRoot && !cloud) throw new Error('The web app requires DATABASE_URL and CLOUDINARY_URL.');

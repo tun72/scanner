@@ -1,8 +1,10 @@
 import * as webPush from 'web-push';
+import { generateKeyPair, SignJWT } from 'jose';
 import { describe, expect, it, vi } from 'vitest';
 import { createWebPush, pushSubscriptionSchema } from '../src/cloud/web-push.ts';
 import type { CloudServices } from '../src/cloud/routes.ts';
 import { buildServer } from '../src/http/server.ts';
+import { authorizePushJob } from '../src/cloud/push-scheduler.ts';
 
 vi.mock('web-push', async importOriginal => ({
   ...await importOriginal<typeof webPush>(), sendNotification: vi.fn(),
@@ -14,6 +16,22 @@ const subscription = {
 };
 
 describe('PWA test notifications', () => {
+  it('authorizes only the release workflow, with manual runs limited to a readiness check', async () => {
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const authorize = async (event: string, repositoryId = '1465648520') => {
+      const token = await new SignJWT({
+        event_name: event, repository_id: repositoryId, ref: 'refs/heads/main',
+        workflow_ref: 'tun72/scanner/.github/workflows/daily-push.yml@refs/heads/main',
+      }).setProtectedHeader({ alg: 'RS256' }).setIssuer('https://token.actions.githubusercontent.com')
+        .setAudience('scanner-daily-push').setIssuedAt().setExpirationTime('1m').sign(privateKey);
+      return authorizePushJob(`Bearer ${token}`, () => publicKey);
+    };
+    expect(await authorize('schedule')).toBe('send');
+    expect(await authorize('workflow_dispatch')).toBe('check');
+    expect(await authorize('push')).toBeNull();
+    expect(await authorize('schedule', '1')).toBeNull();
+  });
+
   it('accepts only secure browser push endpoints', () => {
     expect(pushSubscriptionSchema.safeParse(subscription).success).toBe(true);
     for (const endpoint of [
@@ -29,7 +47,7 @@ describe('PWA test notifications', () => {
     const cloud: CloudServices = {
       accounts: { authenticate: async value => value === token ? 'owner' : null, login: async () => null, revoke: async () => {} },
       history: {} as CloudServices['history'],
-      push: { publicKey: 'public-test-key', sendTest },
+      push: { publicKey: 'public-test-key', sendTest, sendDaily: sendTest },
     };
     const server = buildServer({ cloud, logLevel: 'silent', assessFood: async () => { throw new Error('Unexpected scan'); } });
     try {
