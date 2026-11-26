@@ -8,7 +8,7 @@
 
 ## Information on your device
 
-Food Scanner requires a mobile account. Your phone stores your sign-in session in the system's secure storage. Your settings, including selected digestive conditions, optional profile notes and acceptance of the onboarding notice, stay on the device. Your phone may cache your saved verdicts so you can read them offline while signed in. A resized photo may also stay on the originating phone while a failed upload is pending. The app asks for camera permission to photograph food and read barcodes.
+Food Scanner requires a mobile account. The native app stores your sign-in session in the system's secure storage. The web app keeps its session in browser storage so it can restore your sign-in when reopened. Your settings, including selected digestive conditions, optional profile notes and acceptance of the onboarding notice, stay on the device. Your phone may cache your saved verdicts so you can read them offline while signed in. A resized photo may also stay on the originating phone while a failed upload is pending. The app asks for camera permission to photograph food and read barcodes.
 
 ## Your account and scan history
 
