@@ -17,7 +17,8 @@ it.skipIf(!url)('notifies opted-in devices once, removes expired devices, and re
   const expired = subscription('expired');
   const disabled = subscription('disabled');
   const sendDaily = vi.fn(async ({ endpoint }: typeof active) => endpoint === expired.endpoint ? 'expired' as const : 'sent' as const);
-  const subscriptions = createPushSubscriptions(pool, { publicKey: '', sendDaily, sendTest: sendDaily });
+  const sendTest = vi.fn().mockResolvedValue('sent');
+  const subscriptions = createPushSubscriptions(pool, { publicKey: '', sendDaily, sendTest });
   try {
     await migrateCloudDatabase(pool);
     await pool.query(
@@ -35,6 +36,11 @@ it.skipIf(!url)('notifies opted-in devices once, removes expired devices, and re
     expect(await subscriptions.enabled(owner, disabled.endpoint)).toBe(false);
     expect((await subscriptions.sendDaily()).sent).toBe(0);
     expect(sendDaily).toHaveBeenCalledTimes(2);
+    const requestId = randomUUID();
+    await pool.query("INSERT INTO web_push_test_requests(id,endpoint,expires_at) VALUES($1,$2,now()+interval '1 minute')", [requestId, active.endpoint]);
+    await Promise.all([subscriptions.sendOneRequestedTest(), subscriptions.sendOneRequestedTest()]);
+    expect(sendTest).toHaveBeenCalledExactlyOnceWith(active);
+    expect((await pool.query('SELECT status FROM web_push_test_requests WHERE id=$1', [requestId])).rows).toEqual([{ status: 'sent' }]);
   } finally {
     await pool.query('DELETE FROM mobile_accounts WHERE id=ANY($1::uuid[])', [[owner, other]]);
     await pool.end();

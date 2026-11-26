@@ -19,6 +19,22 @@ export function createPushSubscriptions(pool: Pool, push: WebPush) {
     async disable(owner: string, endpoint: string) {
       await pool.query('DELETE FROM web_push_subscriptions WHERE endpoint=$1 AND owner_id=$2', [endpoint, owner]);
     },
+    async sendOneRequestedTest() {
+      const { rows: [request] } = await pool.query<SubscriptionRow & { id: string }>(`
+        WITH ready AS (
+          SELECT id FROM web_push_test_requests
+          WHERE status='pending' AND expires_at>now()
+          ORDER BY expires_at LIMIT 1 FOR UPDATE SKIP LOCKED
+        )
+        UPDATE web_push_test_requests AS r SET status='sending'
+        FROM ready,web_push_subscriptions AS s
+        WHERE r.id=ready.id AND s.endpoint=r.endpoint RETURNING r.id,s.endpoint,s.p256dh,s.auth
+      `);
+      if (!request) return;
+      const { id, endpoint, p256dh, auth } = request;
+      const result = await push.sendTest({ endpoint, keys: { p256dh, auth } });
+      await pool.query('UPDATE web_push_test_requests SET status=$2 WHERE id=$1', [id, result]);
+    },
     async sendDaily() {
       // Claim before sending. A retried or overlapping job cannot notify a device twice on the same Myanmar date.
       const { rows } = await pool.query<SubscriptionRow>(`

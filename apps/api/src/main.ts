@@ -60,8 +60,12 @@ if (webRoot) serveWebApp(server, webRoot);
 if (cloud && database) {
   let cleanup: Promise<void> | undefined;
   const runCleanup = () => {
-    cleanup ??= cloud.history.cleanOnePhoto().catch(() => {
-      server.log.warn('Photo cleanup will retry later.');
+    cleanup ??= Promise.allSettled([
+      cloud.history.cleanOnePhoto(),
+      cloud.pushSubscriptions?.sendOneRequestedTest(),
+    ]).then(([photos, pushTest]) => {
+      if (photos.status === 'rejected') server.log.warn('Photo cleanup will retry later.');
+      if (pushTest.status === 'rejected') server.log.warn('One-time push test processing failed.');
     }).finally(() => { cleanup = undefined; });
   };
   const timer = setInterval(runCleanup, 5_000);
