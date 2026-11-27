@@ -1,8 +1,9 @@
-import { burmeseVerdict, PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ProductDetails, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
+import { burmeseVerdict, PhotoDetailsSchema, VerdictResponseSchema, type AssessmentError, type ScanRequest, type VerdictResponse } from '@food-scanner/contracts';
 import { checkScanRequest } from './check-request.ts';
 import { aiUnavailable, productLookupUnavailable, productNotFound } from './errors.ts';
 import type { FoodJudge, JudgeFailure, JudgeResult, TokenUsage } from './food-judge.ts';
-import type { LookupFailure, ProductLookup } from './product-lookup.ts';
+import { highlightsFromPhoto, highlightsFromProduct } from './nutrient-highlights.ts';
+import type { LookupFailure, ProductFacts, ProductLookup } from './product-lookup.ts';
 import { applyVerdictRules, labelForTarget, type Verdict } from './verdict.ts';
 
 /** Source notice, localized when formatting the verdict. */
@@ -28,7 +29,7 @@ export interface AssessFoodDeps {
 export type AssessFood = (body: unknown) => Promise<AssessmentOutcome>;
 
 /** A food ready to be judged, or the reason it will not be. */
-type Judged = { judged: JudgeResult; productName?: string; productDetails?: ProductDetails } | Extract<AssessmentOutcome, { kind: 'not-found' | 'unavailable' }>;
+type Judged = { judged: JudgeResult; product?: ProductFacts } | Extract<AssessmentOutcome, { kind: 'not-found' | 'unavailable' }>;
 
 const unique = (items: readonly string[]): string[] => [...new Set(items)];
 
@@ -66,11 +67,7 @@ export function createAssessFood({ judge, products, now, requireFoodOnlyPhoto = 
     if (lookup.status === 'not-found') return { kind: 'not-found', scanKind: 'barcode', error: productNotFound() };
     if (lookup.status === 'unavailable') return { kind: 'unavailable', scanKind: 'barcode', error: productLookupUnavailable(), failure: lookup.failure };
     const judged = await judge.judgeProduct({ product: lookup.product, profile, locale });
-    return {
-      judged,
-      ...(lookup.product.name === undefined ? {} : { productName: lookup.product.name }),
-      ...(lookup.product.details === undefined ? {} : { productDetails: lookup.product.details }),
-    };
+    return { judged, product: lookup.product };
   }
 
   return async (body) => {
@@ -86,19 +83,27 @@ export function createAssessFood({ judge, products, now, requireFoodOnlyPhoto = 
 
     const result = await judgeScan(check.request);
     if ('kind' in result) return result;
-    const { judged, productName, productDetails } = result;
+    const { judged, product } = result;
     if (!judged.ok) {
       return { kind: 'unavailable', scanKind, error: aiUnavailable(), failure: judged.failure, ...(judged.usage === undefined ? {} : { usage: judged.usage }) };
     }
 
     const verdict = applyVerdictRules(judged.draft);
     // A product is named as its label names it, not as the AI rephrases it.
-    const candidate = toResponse(verdict, scanKind === 'photo' ? 'photo' : 'product', productName ?? verdict.foodName, now());
+    const candidate = toResponse(verdict, scanKind === 'photo' ? 'photo' : 'product', product?.name ?? verdict.foodName, now());
     if (scanKind === 'photo' && judged.draft.isFood) {
       const photo = verdict.level === 'unsure' ? undefined : PhotoDetailsSchema.safeParse(judged.draft.photoDetails).data;
       candidate.details = { kind: 'photo', confidence: judged.draft.confidence, ...(photo ? { photo } : {}) };
-    } else if (scanKind === 'barcode' && productDetails) {
-      candidate.details = { kind: 'product', product: productDetails };
+      if (judged.draft.foodName.trim() && judged.draft.confidence === 'high' && photo?.ingredients) {
+        const highlights = highlightsFromPhoto(photo.ingredients);
+        if (highlights.length) candidate.nutrientHighlights = highlights;
+      }
+    } else if (product) {
+      if (product.details) candidate.details = { kind: 'product', product: product.details };
+      if (product.reportedNutrients) {
+        const highlights = highlightsFromProduct(product.reportedNutrients);
+        if (highlights.length) candidate.nutrientHighlights = highlights;
+      }
     }
 
     // The draft's shape is already checked, but its texts are not: an empty explanation or

@@ -7,6 +7,33 @@ import { NOTICE, verdict } from '../helpers.ts';
 const badgeColour = () => StyleSheet.flatten(screen.getByTestId('verdict-badge').props.style).color;
 
 describe('the verdict card', () => {
+  it('TC5 puts Burmese nutrient roles and photo evidence below the caution verdict', async () => {
+    await render(<VerdictCard verdict={verdict({ level: 'caution', nutrientHighlights: [
+      { nutrient: 'calcium', source: 'photo', ingredient: 'ဒိန်ချဉ်' },
+      { nutrient: 'fiber', source: 'photo', ingredient: 'ကုလားပဲ' },
+    ] })} />);
+
+    expect(screen.getAllByRole('header').map(heading => heading.props.children)).toEqual([
+      'Spicy noodle soup', 'သတိပြုရန်', 'ခန္ဓာကိုယ်အတွက် အာဟာရ',
+    ]);
+    expect(screen.getByText('ဓာတ်ပုံအရ ခန့်မှန်းချက်')).toBeTruthy();
+    expect(screen.getByText('ကယ်လ်စီယမ်')).toBeTruthy();
+    expect(screen.getByText('အရိုးနဲ့ သွားတွေ သန်မာဖို့ ကူညီပေးပါတယ်။')).toBeTruthy();
+    expect(screen.getByText('ဒိန်ချဉ်')).toBeTruthy();
+    expect(screen.getByText('အမျှင်ဓာတ်')).toBeTruthy();
+    expect(screen.getByText('ဝမ်းမှန်ဖို့ ကူညီပေးပါတယ်။')).toBeTruthy();
+    expect(screen.getByText('ကုလားပဲ')).toBeTruthy();
+  });
+
+  it('TC6 shows a brief unavailable message for recognized food and hides nutrition for unclear photos', async () => {
+    const view = await render(<VerdictCard verdict={verdict()} />);
+    expect(screen.getByText('အာဟာရအချက်အလက် မလုံလောက်သေးပါ။')).toBeTruthy();
+    await view.rerender(<VerdictCard verdict={verdict({ level: 'unsure' })} />);
+    expect(screen.queryByText('ခန္ဓာကိုယ်အတွက် အာဟာရ')).toBeNull();
+    await view.rerender(<VerdictCard verdict={verdict({ foodName: 'Unknown food' })} />);
+    expect(screen.queryByText('ခန္ဓာကိုယ်အတွက် အာဟာရ')).toBeNull();
+  });
+
   it('labels a calorie range as estimated and distinguishes what is visible from possible ingredients', async () => {
     await render(<VerdictCard verdict={verdict({
       details: { kind: 'photo', confidence: 'medium', photo: {

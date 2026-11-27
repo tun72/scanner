@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AssessmentErrorSchema, MAX_NOTES_LENGTH, MAX_PHOTO_BASE64_LENGTH, ScanRequestSchema, VerdictResponseSchema } from '../src/index.ts';
+import { AssessmentErrorSchema, CloudScanSchema, MAX_NOTES_LENGTH, MAX_PHOTO_BASE64_LENGTH, ScanRequestSchema, VerdictResponseSchema } from '../src/index.ts';
 
 const photoScan = {
   installId: '7f1c2a3e-6b4d-4c8e-9a1f-2b3c4d5e6f70',
@@ -51,6 +51,20 @@ describe('scan request', () => {
 });
 
 describe('verdict response', () => {
+  it('TC9 decodes saved verdicts with absent or invalid highlights', () => {
+    const saved = { id: photoScan.installId, photoState: 'ready', scannedAt: verdict.assessedAt, verdict };
+    const malformed = { ...saved, verdict: { ...verdict, nutrientHighlights: [{ nutrient: 'iron', source: 'photo' }] } };
+    expect(CloudScanSchema.parse(saved)).toEqual(saved);
+    expect(CloudScanSchema.parse(malformed)).toEqual(saved);
+  });
+
+  it('TC11 preserves the assessment when optional highlights are malformed or duplicate', () => {
+    const valid = { nutrient: 'iron', source: 'photo', ingredient: 'Chickpeas' };
+    expect(VerdictResponseSchema.parse({ ...verdict, nutrientHighlights: [valid] }).nutrientHighlights).toEqual([valid]);
+    expect(VerdictResponseSchema.parse({ ...verdict, nutrientHighlights: [valid, valid] })).toEqual(verdict);
+    expect(VerdictResponseSchema.parse({ ...verdict, nutrientHighlights: [{ ...valid, nutrient: 'invalid' }] })).toEqual(verdict);
+  });
+
   it('accepts a verdict and keeps working when the API adds a field', () => {
     expect(VerdictResponseSchema.safeParse(verdict).success).toBe(true);
     expect(VerdictResponseSchema.safeParse({ ...verdict, addedLater: 1 }).success).toBe(true);

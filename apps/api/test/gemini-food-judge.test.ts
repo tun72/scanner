@@ -17,6 +17,23 @@ const response = (finishReason = 'STOP', facts = {}) => Response.json({
 });
 
 describe('Gemini food-only mode', () => {
+  it('TC10 decodes clear and possible ingredient evidence from the provider for a photo', async () => {
+    const jpeg = await sharp({ create: { width: 32, height: 24, channels: 3, background: 'white' } }).jpeg().toBuffer();
+    const photoDetails = {
+      portionGrams: null, calories: null, protein: null, fat: null, carbs: null,
+      ingredients: [{ name: 'ငှက်ပျောသီး', evidence: 'seen' }, { name: 'နွားနို့', evidence: 'possible' }],
+    };
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(response('STOP', { foodName: 'ငှက်ပျောသီး', features: [], photoDetails }));
+    const assessFood = createAssessFood({ judge: createGeminiFoodJudge({ apiKey: 'fixture', fetcher }), products: fakeProducts(), now: () => FIXED_NOW });
+
+    const result = await assessFood(photoScan({ photo: jpeg.toString('base64'), locale: 'my-MM' }));
+    expect(result).toMatchObject({ kind: 'verdict', response: {
+      foodName: 'ငှက်ပျောသီး', details: { confidence: 'high', photo: { ingredients: photoDetails.ingredients } },
+      nutrientHighlights: [{ nutrient: 'potassium', source: 'photo', ingredient: 'ငှက်ပျောသီး' }],
+    } });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it('selects Gemini explicitly and requires its own key', () => {
     expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture' })).toMatchObject({ geminiApiKey: 'fixture', geminiModel: 'gemini-3.5-flash-lite' });
     expect(loadConfig({ FOOD_SCAN_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture', GEMINI_MODEL: ' gemini-3.6-flash ' }).geminiModel).toBe('gemini-3.6-flash');

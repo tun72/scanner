@@ -11,7 +11,7 @@ import { barcodeScan, draft, fakeJudge, fakeProducts, FIXED_NOW, jpegBase64, pho
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
-  it('isolates accounts and restores verdicts across sessions, retries photos and propagates deletion', async () => {
+  it('TC8 restores the saved nutrient evidence across sessions while preserving account isolation and photo handling', async () => {
     const pool = createCloudDatabase(databaseUrl!);
     const photos = new Map<string, Buffer>();
     const upload = vi.fn(async (id: string, jpeg: string) => { photos.set(id, Buffer.from(jpeg, 'base64')); })
@@ -23,7 +23,7 @@ describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
       draft: draft({
         photoDetails: {
           portionGrams: 250, calories: { min: 300, max: 400 }, protein: { min: 5, max: 7 }, fat: null, carbs: null,
-          ingredients: [{ name: 'Rice', evidence: 'seen' }, { name: 'Butter', evidence: 'possible' }],
+          ingredients: [{ name: 'Chickpeas', evidence: 'seen' }, { name: 'Butter', evidence: 'possible' }],
         },
       }),
     });
@@ -72,6 +72,15 @@ describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
       const pending = CloudScanSchema.parse(pendingResponse.json());
       expect(pending.photoState).toBe('pending');
       expect(pending.verdict.details).toMatchObject({ kind: 'photo', photo: { calories: { min: 300, max: 400 } } });
+      expect(pending.verdict.nutrientHighlights).toEqual([
+        { nutrient: 'iron', source: 'photo', ingredient: 'Chickpeas' },
+        { nutrient: 'protein', source: 'photo', ingredient: 'Chickpeas' },
+        { nutrient: 'fiber', source: 'photo', ingredient: 'Chickpeas' },
+      ]);
+      const reopened = await server.inject({ url: `/v1/history/${photoId}`, headers: headers(second) });
+      expect(reopened.statusCode).toBe(200);
+      expect(CloudScanSchema.parse(reopened.json())).toEqual(pending);
+      expect(judge.calls).toHaveLength(1);
       expect(await list(second)).toEqual([pending]);
       expect(await list(other)).toEqual([]);
       expect((await server.inject({ url: `/v1/history/${photoId}`, headers: headers(other) })).statusCode).toBe(404);

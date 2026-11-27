@@ -81,6 +81,17 @@ describe('Open Food Facts lookup', () => {
   });
 
   it.each([
+    ['absent fields', {}],
+    ['invalid or zero amounts', { calcium_100g: 0, iron_100g: -1, potassium_100g: '0.2', 'vitamin-c_100g': 100_001 }],
+    ['prepared amounts', { calcium_prepared_100g: 0.05, proteins_prepared_serving: 2 }],
+    ['amounts per an undeclared serving', { fiber_serving: 2 }],
+  ])('TC4 Ignores %s and keeps the product usable for assessment', async (_name, nutriments) => {
+    const result = await find(json({ status: 1, product: { product_name: 'Soup', product_quantity_unit: 'g', nutriments } }));
+    expect(result).toMatchObject({ status: 'found', product: { name: 'Soup' } });
+    expect(result.status === 'found' && result.product.reportedNutrients).toBeUndefined();
+  });
+
+  it.each([
     ['HTTP 404', json({ code: '2999999999995', status: 0, status_verbose: 'product not found' }, 404)],
     ['status 0 with HTTP 200', json({ code: '00000017', status: 0, status_verbose: 'no code or invalid code' })],
     ['a reply with no product', json({ code: '3017620422003', status: 1 })],

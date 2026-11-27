@@ -1,4 +1,4 @@
-import { burmeseText, burmeseVerdict, type VerdictReason, type VerdictResponse } from '@food-scanner/contracts';
+import { burmeseText, burmeseVerdict, type NutrientId, type VerdictReason, type VerdictResponse } from '@food-scanner/contracts';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,48 @@ type Range = { min: number; max: number };
 const number = (value: number) => value.toLocaleString('my-MM', { maximumFractionDigits: 1 });
 const rangeText = ({ min, max }: Range, unit: string) => `${number(min)}${min === max ? '' : '–' + number(max)} ${unit}`;
 const reasonPriority = (reason: VerdictReason) => 2 * Number(reason.severity === 'avoid') + Number(reason.foodEvidence?.certainty === 'observed');
+
+const nutrientCopy: Record<NutrientId, { name: string; role: string }> = {
+  calcium: { name: 'ကယ်လ်စီယမ်', role: 'အရိုးနဲ့ သွားတွေ သန်မာဖို့ ကူညီပေးပါတယ်။' },
+  iron: { name: 'သံဓာတ်', role: 'သွေးက အောက်ဆီဂျင် သယ်ပို့ရာမှာ ကူညီပေးပါတယ်။' },
+  potassium: { name: 'ပိုတက်စီယမ်', role: 'အာရုံကြောနဲ့ ကြွက်သားတွေ အလုပ်လုပ်ဖို့ ကူညီပေးပါတယ်။' },
+  'vitamin-c': { name: 'ဗီတာမင် စီ', role: 'အရေပြားနဲ့ တစ်ရှူးတွေအတွက် လိုအပ်တဲ့ ကော်လာဂျင် ဖွဲ့စည်းဖို့ ကူညီပေးပါတယ်။' },
+  protein: { name: 'ပရိုတင်း', role: 'ကြွက်သားနဲ့ တစ်ရှူးတွေ တည်ဆောက်ပြီး ပြုပြင်ဖို့ ကူညီပေးပါတယ်။' },
+  fiber: { name: 'အမျှင်ဓာတ်', role: 'ဝမ်းမှန်ဖို့ ကူညီပေးပါတယ်။' },
+};
+
+function NutrientHighlights({ verdict }: { verdict: VerdictResponse }) {
+  if (verdict.source === 'photo' && (verdict.level === 'unsure' || verdict.foodName === burmeseText('Unknown food'))) return null;
+
+  const highlights = verdict.nutrientHighlights?.filter(highlight =>
+    highlight.source === (verdict.source === 'photo' ? 'photo' : 'open-food-facts'),
+  ) ?? [];
+
+  return (
+    <GlassCard>
+      <Text style={shared.heading} accessibilityRole="header">ခန္ဓာကိုယ်အတွက် အာဟာရ</Text>
+      {highlights.length === 0 ? <Text style={shared.muted}>အာဟာရအချက်အလက် မလုံလောက်သေးပါ။</Text> : (
+        <>
+          <Text style={shared.muted}>
+            {verdict.source === 'photo' ? 'ဓာတ်ပုံအရ ခန့်မှန်းချက်' : 'ကုန်ပစ္စည်း အာဟာရအချက်အလက် · Open Food Facts'}
+          </Text>
+          {highlights.map(highlight => {
+            const { name, role } = nutrientCopy[highlight.nutrient];
+            return (
+              <View key={highlight.nutrient} style={styles.reason}>
+                <View style={styles.tags}>
+                  <Text style={styles.amount}>{name}</Text>
+                  {highlight.source === 'photo' && <Text style={[styles.tag, styles.source]}>{highlight.ingredient}</Text>}
+                </View>
+                <Text style={shared.body}>{role}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
+    </GlassCard>
+  );
+}
 
 export function VerdictCard({ verdict: savedVerdict, photo, note, onBack }: {
   verdict: VerdictResponse;
@@ -93,6 +135,7 @@ export function VerdictCard({ verdict: savedVerdict, photo, note, onBack }: {
           )}
         </GlassCard>
 
+        <NutrientHighlights verdict={verdict} />
         {serving && <Text style={shared.muted}>ပမာဏ · {serving}</Text>}
         {(product?.ingredientStatement || ingredients.length > 0) && (
           <GlassCard>

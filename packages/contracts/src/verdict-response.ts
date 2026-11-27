@@ -48,6 +48,20 @@ export const ProductDetailsSchema = z.object({
 });
 export type ProductDetails = z.infer<typeof ProductDetailsSchema>;
 
+export const NUTRIENT_IDS = ['calcium', 'iron', 'potassium', 'vitamin-c', 'protein', 'fiber'] as const;
+export type NutrientId = typeof NUTRIENT_IDS[number];
+export const MAX_NUTRIENT_HIGHLIGHTS = 3;
+
+const nutrient = z.enum(NUTRIENT_IDS);
+const NutrientHighlightSchema = z.discriminatedUnion('source', [
+  z.object({ nutrient, source: z.literal('photo'), ingredient: z.string().trim().min(1).max(90) }),
+  z.object({ nutrient, source: z.literal('open-food-facts') }),
+]);
+export type NutrientHighlight = z.infer<typeof NutrientHighlightSchema>;
+
+const NutrientHighlightsSchema = z.array(NutrientHighlightSchema).min(1).max(MAX_NUTRIENT_HIGHLIGHTS)
+  .refine(highlights => new Set(highlights.map(highlight => highlight.nutrient)).size === highlights.length);
+
 const ScanDetailsSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('photo'), confidence: z.enum(['low', 'medium', 'high']), photo: PhotoDetailsSchema.optional(),
@@ -71,5 +85,6 @@ export const VerdictResponseSchema = z.object({
   notice: z.string().min(1),
   assessedAt: z.iso.datetime(),
   details: ScanDetailsSchema.optional().catch(undefined),
+  nutrientHighlights: NutrientHighlightsSchema.optional().catch(undefined),
 });
 export type VerdictResponse = z.infer<typeof VerdictResponseSchema>;
