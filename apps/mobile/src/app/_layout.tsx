@@ -54,6 +54,7 @@ export default function RootLayout() {
           headerTintColor: colors.text, headerTitleStyle: { fontWeight: '700' },
           headerShadowVisible: false, headerBackButtonDisplayMode: 'minimal',
         }}>
+          <Stack.Screen name="set-password" options={{ title: 'စကားဝှက် သတ်မှတ်ရန်' }} />
           <Stack.Protected guard={!session}>
             <Stack.Screen name="login" options={{ headerShown: false }} />
           </Stack.Protected>
@@ -62,6 +63,7 @@ export default function RootLayout() {
             <Stack.Screen name="notice" options={{ title: 'မစမီ သိထားရန်', headerBackVisible: false }} />
             <Stack.Screen name="profile" options={{ title: 'အစားအစာ မှတ်စု' }} />
             <Stack.Screen name="scan" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications" options={{ title: 'အသိပေးချက်များ' }} />
             <Stack.Screen name="history/index" options={{ title: 'မှတ်တမ်း' }} />
             <Stack.Screen name="history/[id]" options={{ headerShown: false }} />
           </Stack.Protected>

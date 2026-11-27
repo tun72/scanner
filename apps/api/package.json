@@ -7,6 +7,7 @@
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "worker:announcements": "tsx src/announcements/worker.ts",
     "seed:mobile": "tsx src/cloud/seed.ts"
   },
   "dependencies": {

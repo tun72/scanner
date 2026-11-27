@@ -20,7 +20,7 @@ export function serveWebApp(server: FastifyInstance, root: string) {
       .type(contentTypes[extname(file)] ?? 'application/octet-stream')
       .send(createReadStream(join(root, file)));
 
-  for (const route of ['/', '/login', '/notice', '/profile', '/scan', '/history', '/history/:id']) {
+  for (const route of ['/', '/login', '/notice', '/profile', '/scan', '/history', '/history/:id', '/notifications', '/set-password']) {
     server.get(route, (_, reply) => send(reply, 'index.html'));
   }
   for (const file of ['app-icon.png', 'app-icon-192.png', 'favicon.ico', 'manifest.webmanifest', 'push-worker.js']) {

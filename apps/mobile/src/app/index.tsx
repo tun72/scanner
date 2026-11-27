@@ -82,6 +82,9 @@ export default function HomeScreen() {
             <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{profile ? 'အချက်အလက် ပြင်ရန်' : 'အချက်အလက် ဖြည့်ရန်'}</Text>
           </Pressable>
         </GlassCard>
+        {session && <Pressable style={[shared.button, shared.buttonSecondary]} onPress={() => router.push('/notifications')} accessibilityRole="button">
+          <Text style={[shared.buttonText, shared.buttonSecondaryText]}>အသိပေးချက်များ</Text>
+        </Pressable>}
         {session && <NotificationTest />}
         {session && <Pressable style={[shared.button, shared.buttonSecondary]} onPress={() => void exit()} accessibilityRole="button">
           <Text style={[shared.buttonText, shared.buttonSecondaryText]}>အကောင့်ထွက်ရန်</Text>

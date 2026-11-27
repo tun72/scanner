@@ -27,3 +27,10 @@
 !packages/contracts/package.json
 !packages/contracts/src/
 !packages/contracts/src/**
+!apps/admin/
+!apps/admin/package.json
+!apps/admin/tsconfig.json
+!apps/admin/vite.config.ts
+!apps/admin/index.html
+!apps/admin/src/
+!apps/admin/src/**
