@@ -2,10 +2,13 @@ import { createHash } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { z } from 'zod';
 
-export interface AdminIdentity {
+export interface AdminSessionIdentity {
   issuer: string;
   origin: string;
   allows(subject: string): boolean;
+}
+
+export interface AdminIdentity extends AdminSessionIdentity {
   loginUrl(state: string, nonce: string, verifier: string): Promise<string>;
   verify(code: string, nonce: string, verifier: string): Promise<string>;
 }

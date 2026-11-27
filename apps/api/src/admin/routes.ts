@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { createBroadcasts } from '../announcements/broadcasts.ts';
 import { tokenPattern } from '../cloud/credentials.ts';
 import { listAdminActivity } from './audit.ts';
-import type { AdminIdentity } from './identity.ts';
+import type { AdminIdentity, AdminSessionIdentity } from './identity.ts';
+import { AdminPasswordInput, type AdminPasswordIdentity } from './password-identity.ts';
 import { createAdminSessions } from './session.ts';
 import { createAdminUsers } from './users.ts';
 
@@ -21,7 +22,7 @@ const conflict = (reply: FastifyReply) => reply.code(409).send({ message: 'This 
 const result = (reply: FastifyReply,value: unknown) => value ?? conflict(reply);
 const idOf = (request: FastifyRequest) => idSchema.safeParse((request.params as { id?: unknown }).id).data;
 
-export function registerAdminRoutes(app: FastifyInstance,pool: Pool,identity?: AdminIdentity) {
+export function registerAdminRoutes(app: FastifyInstance,pool: Pool,identity?: AdminIdentity | AdminPasswordIdentity) {
   const users = createAdminUsers(pool);
   const broadcasts = createBroadcasts(pool);
   app.register(async routes => {
@@ -45,16 +46,36 @@ export function registerAdminRoutes(app: FastifyInstance,pool: Pool,identity?: A
     routes.addHook('onRequest',async (_req,reply) => {
       reply.header('cache-control','private, no-store').header('referrer-policy','no-referrer');
     });
-    const limited = routes.createRateLimit({ max: 15,timeWindow: 60_000,keyGenerator: req => 'scanner-admin-login:' + req.ip });
-    routes.get('/admin/auth/start',async (req,reply) => {
-      const attempt = await limited(req);
-      if (!attempt.isAllowed && attempt.isExceeded) return reply.code(429).header('retry-after',attempt.ttlInSeconds).send();
-      return sessions.start(reply);
+    const limited = routes.createRateLimit({
+      max: 'verifyPassword' in identity ? 8 : 15,timeWindow: 60_000,keyGenerator: req => 'scanner-admin-login:' + req.ip,
     });
-    routes.get('/admin/auth/callback',async (req,reply) => {
-      const query = signInQuery.safeParse(req.query).data;
-      return query ? sessions.callback(req,reply,query.state,query.code) : reply.redirect('/admin/?signin=failed');
-    });
+    routes.get('/admin/auth/mode',async () => ({ mode: 'verifyPassword' in identity ? 'password' : 'oidc' }));
+    if ('verifyPassword' in identity) {
+      // Even distributed attempts against the one configured account share a verification budget.
+      const total = routes.createRateLimit({ max: 15,timeWindow: 60_000,keyGenerator: () => 'scanner-admin-password' });
+      routes.post('/admin/auth/password',{ bodyLimit: 2048 },async (req,reply) => {
+        if (req.headers.origin !== identity.origin) return reply.code(403).send({ message: 'Open the Scanner Admin page to sign in.' });
+        const input = AdminPasswordInput.safeParse(req.body).data;
+        if (!input) return invalid(reply);
+        const perIp = await limited(req);
+        if (!perIp.isAllowed && perIp.isExceeded) return tooManyAttempts(reply,perIp.ttlInSeconds);
+        const shared = await total(req);
+        if (!shared.isAllowed && shared.isExceeded) return tooManyAttempts(reply,shared.ttlInSeconds);
+        const subject = await identity.verifyPassword(input.email,input.password);
+        if (!subject) return reply.code(401).send({ message: 'Check your email and password.' });
+        return sessions.passwordSignIn(req,reply,subject);
+      });
+    } else {
+      routes.get('/admin/auth/start',async (req,reply) => {
+        const attempt = await limited(req);
+        if (!attempt.isAllowed && attempt.isExceeded) return tooManyAttempts(reply,attempt.ttlInSeconds);
+        return sessions.start(reply,identity);
+      });
+      routes.get('/admin/auth/callback',async (req,reply) => {
+        const query = signInQuery.safeParse(req.query).data;
+        return query ? sessions.callback(req,reply,identity,query.state,query.code) : reply.redirect('/admin/?signin=failed');
+      });
+    }
     routes.register(async api => {
       api.addHook('onRoute', route => { route.bodyLimit = 10_000; });
       api.addHook('preHandler',async (req,reply) => {
@@ -122,7 +143,11 @@ export function registerAdminRoutes(app: FastifyInstance,pool: Pool,identity?: A
   });
 }
 
-function grantLink(identity: AdminIdentity, { token,expiresAt }: { token: string; expiresAt: string }) {
+function tooManyAttempts(reply: FastifyReply,seconds: number) {
+  return reply.code(429).header('retry-after',seconds).send({ message: 'Too many sign-in attempts. Wait a minute and try again.' });
+}
+
+function grantLink(identity: AdminSessionIdentity, { token,expiresAt }: { token: string; expiresAt: string }) {
   return { url: identity.origin + '/set-password#' + token,expiresAt };
 }
 

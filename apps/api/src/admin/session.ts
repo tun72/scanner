@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { digestToken, randomToken, tokenPattern } from '../cloud/credentials.ts';
-import type { AdminIdentity } from './identity.ts';
+import type { AdminIdentity, AdminSessionIdentity } from './identity.ts';
 
 const cookieName = '__Secure-scanner-admin';
 const stateCookie = '__Secure-scanner-admin-flow';
@@ -17,23 +17,31 @@ const cookie = (name: string, value: string, age: number, path: string) =>
   `${name}=${value}; Max-Age=${age}; Path=${path}; Secure; HttpOnly; SameSite=Lax`;
 const csrfFor = (token: string) => digestToken('scanner-admin-csrf:' + token);
 
-export function createAdminSessions(pool: Pool, identity: AdminIdentity) {
+export function createAdminSessions(pool: Pool, identity: AdminSessionIdentity) {
   const revoke = async (request: FastifyRequest) => {
     const token = cookieValue(request, cookieName);
     if (token) await pool.query('DELETE FROM admin_sessions WHERE digest=$1', [digestToken(token)]);
   };
+  async function issueCookie(request: FastifyRequest, subject: string) {
+    await revoke(request);
+    await pool.query('DELETE FROM admin_sessions WHERE expires_at<=now()');
+    const token = randomToken();
+    await pool.query(`INSERT INTO admin_sessions(digest,issuer,subject,expires_at)
+      VALUES($1,$2,$3,now()+$4*interval '1 second')`, [digestToken(token), identity.issuer, subject, maxAge]);
+    return cookie(cookieName,token,maxAge,'/admin');
+  }
   return {
-    async start(reply: FastifyReply) {
+    async start(reply: FastifyReply, oidc: AdminIdentity) {
       const state = randomToken();
       const nonce = randomToken();
       const verifier = randomToken();
-      const url = await identity.loginUrl(state, nonce, verifier);
+      const url = await oidc.loginUrl(state, nonce, verifier);
       await pool.query('DELETE FROM admin_login_attempts WHERE expires_at<=now()');
       await pool.query(`INSERT INTO admin_login_attempts(digest,nonce,verifier,expires_at)
         VALUES($1,$2,$3,now()+interval '5 minutes')`, [digestToken(state), nonce, verifier]);
       return reply.header('set-cookie', cookie(stateCookie,state,300,'/admin/auth')).redirect(url);
     },
-    async callback(request: FastifyRequest, reply: FastifyReply, state: string, code: string) {
+    async callback(request: FastifyRequest, reply: FastifyReply, oidc: AdminIdentity, state: string, code: string) {
       const clearFlow = cookie(stateCookie,'',0,'/admin/auth');
       if (state !== cookieValue(request,stateCookie)) return reply.header('set-cookie',clearFlow).redirect('/admin/?signin=failed');
       const { rows: [attempt] } = await pool.query<{ nonce: string; verifier: string }>(`
@@ -42,17 +50,15 @@ export function createAdminSessions(pool: Pool, identity: AdminIdentity) {
       if (!attempt) return reply.header('set-cookie',clearFlow).redirect('/admin/?signin=failed');
       let subject: string;
       try {
-        subject = await identity.verify(code,attempt.nonce,attempt.verifier);
+        subject = await oidc.verify(code,attempt.nonce,attempt.verifier);
       } catch {
         return reply.header('set-cookie',clearFlow).redirect('/admin/?signin=failed');
       }
       if (!identity.allows(subject)) return reply.header('set-cookie',clearFlow).redirect('/admin/?signin=failed');
-      await revoke(request);
-      await pool.query('DELETE FROM admin_sessions WHERE expires_at<=now()');
-      const token = randomToken();
-      await pool.query(`INSERT INTO admin_sessions(digest,issuer,subject,expires_at)
-        VALUES($1,$2,$3,now()+$4*interval '1 second')`, [digestToken(token), identity.issuer, subject, maxAge]);
-      return reply.header('set-cookie', [clearFlow,cookie(cookieName,token,maxAge,'/admin')]).redirect('/admin/');
+      return reply.header('set-cookie', [clearFlow,await issueCookie(request,subject)]).redirect('/admin/');
+    },
+    async passwordSignIn(request: FastifyRequest, reply: FastifyReply, subject: string) {
+      return reply.header('set-cookie', await issueCookie(request,subject)).code(204).send();
     },
     async authorize(request: FastifyRequest, reply: FastifyReply, mutation = false) {
       const token = cookieValue(request,cookieName);

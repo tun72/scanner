@@ -116,6 +116,8 @@ th { font-weight: 650; }
 .login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
 .sign-in { width: min(100%, 25rem); padding: 2rem; display: grid; justify-items: start; gap: 1rem; }
 .sign-in h1 { font-size: 2rem; }
+.sign-in-form { width: 100%; display: grid; gap: .85rem; }
+.sign-in-form .message { margin: 0; }
 
 @media (max-width: 770px) {
   .shell { grid-template-columns: minmax(0, 1fr); }

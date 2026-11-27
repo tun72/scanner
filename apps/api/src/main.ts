@@ -4,6 +4,7 @@ import { loadConfig } from './config.ts';
 import { loadEnv } from './env.ts';
 import { buildServer } from './http/server.ts';
 import { createAdminIdentity } from './admin/identity.ts';
+import { createAdminPasswordIdentity } from './admin/password-identity.ts';
 import { registerAdminRoutes } from './admin/routes.ts';
 import { createBroadcasts } from './announcements/broadcasts.ts';
 import { serveAdminWeb } from './http/admin-web.ts';
@@ -62,7 +63,7 @@ const server = buildServer({
 });
 if (webRoot) serveWebApp(server, webRoot);
 if (database) {
-  const admin = createAdminIdentity(process.env);
+  const admin = await createAdminPasswordIdentity(process.env) ?? createAdminIdentity(process.env);
   registerAdminRoutes(server,database,admin);
   const adminRoot = process.env.ADMIN_WEB_ROOT?.trim();
   if (admin && adminRoot) serveAdminWeb(server,adminRoot);

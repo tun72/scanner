@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { adminRequest, myanmarTime, readableError, RequestError } from './api.ts';
 import type { Activity, Request, Session } from './api.ts';
@@ -44,8 +45,47 @@ function Audit({ request }: { request: Request }) {
   </>;
 }
 
+function PasswordSignIn({ onSignIn }: { onSignIn: (session: Session) => void }) {
+  const [email,setEmail] = useState('');
+  const [password,setPassword] = useState('');
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const result = await fetch('/admin/auth/password',{
+        method: 'POST',credentials: 'same-origin',
+        headers: { 'content-type': 'application/json',accept: 'application/json' },
+        body: JSON.stringify({ email,password }),
+      });
+      if (result.status === 429) { setError('Too many attempts. Wait a minute and try again.'); return; }
+      if (result.status === 401) { setError('Check your email and password.'); return; }
+      if (!result.ok) { setError('Scanner could not sign you in. Try again.'); return; }
+      onSignIn(await adminRequest()<Session>('/session'));
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setPassword('');
+      setBusy(false);
+    }
+  }
+
+  return <form className="sign-in-form" onSubmit={submit}>
+    <label>Email<input type="email" autoComplete="username" required maxLength={254}
+      value={email} onChange={event => setEmail(event.target.value)} /></label>
+    <label>Password<input type="password" autoComplete="current-password" required maxLength={128}
+      value={password} onChange={event => setPassword(event.target.value)} /></label>
+    {error && <p className="message error" role="alert">{error}</p>}
+    <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+  </form>;
+}
+
 function Admin() {
   const [session,setSession] = useState<Session | null>();
+  const [mode,setMode] = useState<'password' | 'oidc' | null>();
   const [error,setError] = useState(new URLSearchParams(location.search).has('signin') ? 'Sign-in could not be verified. Try again.' : '');
   const [section,setSection] = useState(sectionFromUrl);
   const expire = useCallback(() => {
@@ -65,17 +105,25 @@ function Admin() {
       setSession(null);
       if (!(reason instanceof RequestError && reason.status === 401)) setError(readableError(reason));
     });
+    void fetch('/admin/auth/mode',{ cache: 'no-store' }).then(async response => {
+      if (!response.ok) throw new Error('Could not load sign-in settings.');
+      const { mode } = await response.json();
+      if (active) setMode(mode === 'password' || mode === 'oidc' ? mode : null);
+    }).catch(() => { if (active) setMode(null); });
     return () => { active = false; window.removeEventListener('hashchange',onSection); };
   },[]);
+  const signedIn = (value: Session) => { setError(''); setSession(value); };
 
   if (!session) return <div className="login">
     <main className="card sign-in">
       <div className="app-mark" aria-hidden="true">S</div>
       <h1>Scanner Admin</h1>
-      {session === undefined ? <p role="status">Checking sign-in…</p> :
+      {session === undefined || mode === undefined ? <p role="status">Checking sign-in…</p> :
         <><p>Sign in with your administrator account.</p>
           {error && <p className="message error" role="alert">{error}</p>}
-          <a className="button-link" href="/admin/auth/start">Sign in</a></>}
+          {mode === 'password' ? <PasswordSignIn onSignIn={signedIn} /> :
+            mode === 'oidc' ? <a className="button-link" href="/admin/auth/start">Sign in</a> :
+              <p className="message error" role="alert">Sign-in is unavailable. Reload the page to retry.</p>}</>}
     </main>
   </div>;
 

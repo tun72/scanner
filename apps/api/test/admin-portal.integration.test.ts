@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminIdentity } from '../src/admin/identity.ts';
+import { createAdminPasswordIdentity, type AdminPasswordIdentity } from '../src/admin/password-identity.ts';
 import { registerAdminRoutes } from '../src/admin/routes.ts';
 import { createAdminUsers } from '../src/admin/users.ts';
 import { createBroadcasts } from '../src/announcements/broadcasts.ts';
@@ -18,6 +19,7 @@ const dbUrl = process.env.TEST_DATABASE_URL;
 const origin = 'https://scanner.example.test';
 const admin = 'fixture-admin';
 const password = 'unique long fixture password';
+const passwordAdminEmail = 'scanner-admin@example.test';
 const content = { title: 'သတင်းစကား',body: 'Scanner မှ စမ်းသပ်ကြေညာချက်' };
 const date = new Intl.DateTimeFormat('sv-SE',{
   dateStyle: 'short',timeStyle: 'short',timeZone: 'Asia/Yangon',
@@ -117,6 +119,59 @@ describe.skipIf(!dbUrl)('Scanner admin portal on PostgreSQL', () => {
   const delivery = (send = sender(),when = Date.now() + 5_000) => createBroadcastDelivery(pool,send,() => new Date(when));
   const announcementFetch = (token: string) => app.inject({
     url: '/v1/announcements',headers: { authorization: 'Bearer ' + token },
+  });
+
+  const usePasswordAuth = async (identity: AdminPasswordIdentity) => {
+    await app.close();
+    app = buildServer({
+      logLevel: 'silent',assessFood: async () => { throw new Error('No food assessment in this test.'); },
+    });
+    registerAdminRoutes(app,pool,identity);
+  };
+  const configuredPasswordAdmin = () => createAdminPasswordIdentity({
+    ADMIN_AUTH_MODE: 'password',ADMIN_ORIGIN: origin,ADMIN_EMAIL: passwordAdminEmail,ADMIN_PASSWORD: password,
+  });
+
+  it('issues protected admin sessions for the configured email and password, with revocation on rotation', async () => {
+    await usePasswordAuth((await configuredPasswordAdmin())!);
+    const signIn = (email: string, secret: string, requestOrigin = origin) => app.inject({
+      method: 'POST',url: '/admin/auth/password',headers: { origin: requestOrigin },payload: { email,password: secret },
+    });
+    expect((await app.inject('/admin/auth/mode')).json()).toEqual({ mode: 'password' });
+    expect((await app.inject('/admin/auth/start')).statusCode).toBe(404);
+    expect((await signIn(passwordAdminEmail,password,'https://other.example')).statusCode).toBe(403);
+    const wrongPassword = await signIn(passwordAdminEmail,'incorrect');
+    const wrongEmail = await signIn('other@example.test',password);
+    expect(wrongPassword.statusCode).toBe(401);
+    expect(wrongPassword.json()).toEqual(wrongEmail.json());
+    expect(wrongEmail.headers['set-cookie']).toBeUndefined();
+    const result = await signIn(passwordAdminEmail.toUpperCase(),password);
+    expect(result.statusCode).toBe(204);
+    const cookieHeader = String(result.headers['set-cookie']);
+    expect(cookieHeader).toContain('Path=/admin; Secure; HttpOnly; SameSite=Lax');
+    const cookie = cookieHeader.split(';')[0]!;
+    const session = await app.inject({ url: '/admin/api/session',headers: { cookie } });
+    expect(session.json()).toMatchObject({ actor: passwordAdminEmail,csrf: expect.any(String) });
+    expect((await app.inject({ method: 'POST',url: '/admin/api/logout',headers: { cookie,origin } })).statusCode).toBe(403);
+    const rotated = await createAdminPasswordIdentity({
+      ADMIN_AUTH_MODE: 'password',ADMIN_ORIGIN: origin,ADMIN_EMAIL: passwordAdminEmail,ADMIN_PASSWORD: 'replacement fixture password',
+    });
+    await usePasswordAuth(rotated!);
+    expect((await app.inject({ url: '/admin/api/session',headers: { cookie } })).statusCode).toBe(401);
+    expect((await signIn(passwordAdminEmail,password)).statusCode).toBe(401);
+  });
+
+  it('limits repeated admin password verification across source addresses', async () => {
+    const verifyPassword = vi.fn().mockResolvedValue(null);
+    await usePasswordAuth({ issuer: 'fixture-password',origin,allows: () => false,verifyPassword });
+    for (let i = 1; i <= 16; i++) {
+      const response = await app.inject({
+        method: 'POST',url: '/admin/auth/password',headers: { origin },
+        payload: { email: passwordAdminEmail,password: 'incorrect' },remoteAddress: '192.0.2.' + i,
+      });
+      expect(response.statusCode).toBe(i === 16 ? 429 : 401);
+    }
+    expect(verifyPassword).toHaveBeenCalledTimes(15);
   });
 
   it('TC1 creates a protected cookie session and revokes it on sign-out', async () => {
