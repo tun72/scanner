@@ -72,7 +72,7 @@ export function createClaudeFoodJudge({ messages, model, serverFallback = model 
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: [food, { type: 'text', text: buildProfileText(profile, locale) }, ...(isPhoto ? [{
           type: 'text' as const,
-          text: 'If the food and pictured portion can reasonably be inferred, fill photoDetails with rounded ranges for kcal and grams of protein, fat and carbs, and an approximate portion in grams. Use null for unknown values. List at most 12 ingredients with seen or possible evidence. Do not infer that an allergen is absent. Use short explanations and practical tips.',
+          text: 'If the food and pictured portion can reasonably be inferred, fill photoDetails with rounded ranges for kcal and grams of protein, fat and carbs, and an approximate portion in grams. Use null for unknown values. List at most 12 ingredients by simple name. Mark an ingredient seen only when visibly identifiable, and possible when inferred from the dish. Do not infer that an allergen is absent. Use short explanations and practical tips.',
         }] : [])] }],
         output_config: { effort: 'low', format: betaZodOutputFormat(draftSchema) },
       });

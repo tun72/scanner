@@ -11,6 +11,8 @@ import { createAccounts } from './cloud/accounts.ts';
 import { createCloudDatabase, migrateCloudDatabase } from './cloud/database.ts';
 import { createCloudHistory } from './cloud/history.ts';
 import { createCloudinaryMedia } from './cloud/media.ts';
+import { createWebPush } from './cloud/web-push.ts';
+import { createPushSubscriptions } from './cloud/push-subscriptions.ts';
 
 loadEnv();
 
@@ -44,8 +46,10 @@ if (database) {
     throw new Error('Could not prepare the account database. Check DATABASE_URL and database permissions.');
   }
 }
+const push = createWebPush(process.env);
 const cloud = database && cloudinaryUrl ? {
   accounts: createAccounts(database), history: createCloudHistory(database, createCloudinaryMedia(cloudinaryUrl)),
+  ...(push && { push, pushSubscriptions: createPushSubscriptions(database, push) }),
 } : undefined;
 const webRoot = process.env.WEB_ROOT?.trim();
 if (webRoot && !cloud) throw new Error('The web app requires DATABASE_URL and CLOUDINARY_URL.');
@@ -56,8 +60,12 @@ if (webRoot) serveWebApp(server, webRoot);
 if (cloud && database) {
   let cleanup: Promise<void> | undefined;
   const runCleanup = () => {
-    cleanup ??= cloud.history.cleanOnePhoto().catch(() => {
-      server.log.warn('Photo cleanup will retry later.');
+    cleanup ??= Promise.allSettled([
+      cloud.history.cleanOnePhoto(),
+      cloud.pushSubscriptions?.sendOneRequestedTest(),
+    ]).then(([photos, pushTest]) => {
+      if (photos.status === 'rejected') server.log.warn('Photo cleanup will retry later.');
+      if (pushTest.status === 'rejected') server.log.warn('One-time push test processing failed.');
     }).finally(() => { cleanup = undefined; });
   };
   const timer = setInterval(runCleanup, 5_000);

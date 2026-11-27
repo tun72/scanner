@@ -84,7 +84,7 @@ export default function HistoryScreen() {
   };
 
   const confirmDeleteAll = () => confirmDelete('မှတ်တမ်းအားလုံး ဖျက်မလား။',
-    session ? 'ရလဒ်နှင့် ဓာတ်ပုံအားလုံးကို သင့်အကောင့်မှ ဖျက်ပါမည်။' : 'သိမ်းထားသော မှတ်တမ်းအားလုံးကို ဤဖုန်းမှ ဖျက်ပါမည်။',
+    session ? 'မှတ်တမ်းအားလုံးကို အက်ပ်ထဲကနေ ဖယ်ရှားပါမယ်။ သိမ်းထားပြီးသား ဓာတ်ပုံတွေကို ဆက်သိမ်းထားပါမယ်။' : 'သိမ်းထားသော မှတ်တမ်းအားလုံးကို ဤဖုန်းမှ ဖျက်ပါမည်။',
     'အားလုံး ဖျက်ရန်', () => void deleteAll());
 
   if (scans === 'error') {
@@ -152,7 +152,6 @@ export default function HistoryScreen() {
               <View style={styles.summary}>
                 <Text style={styles.foodName}>{item.foodName}</Text>
                 <Text style={[styles.level, { color: look.colour }]}>{look.badge}</Text>
-                <Text style={shared.muted}>{new Date(item.scannedAt).toLocaleString('my-MM', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
               </View>
               <Text style={styles.chevron} importantForAccessibility="no" accessibilityElementsHidden>›</Text>
             </Pressable>

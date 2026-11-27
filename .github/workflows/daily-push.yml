@@ -1,0 +1,35 @@
+name: Scanner daily notifications
+
+on:
+  schedule:
+    # 7:45 PM Myanmar time.
+    - cron: '15 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+jobs:
+  daily-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Contact Scanner
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-max-time 100 \
+            https://food-scanner-api-pc78.onrender.com/health | jq -e '.status == "ok"'
+          for ((batch=1; batch<=20; batch++)); do
+            identity=$(curl --fail --silent --show-error --max-time 20 \
+              --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=scanner-daily-push" | jq -er '.value')
+            echo "::add-mask::$identity"
+            result=$(curl --fail --silent --show-error --max-time 100 --retry 2 --retry-max-time 100 \
+              --header "Authorization: Bearer $identity" --request POST \
+              https://food-scanner-api-pc78.onrender.com/v1/push/daily)
+            printf '%s\n' "$result"
+            jq -e '.ready == true or (.more | type == "boolean")' >/dev/null <<< "$result"
+            if ! jq -e '.more == true' >/dev/null <<< "$result"; then exit 0; fi
+          done
+          echo "The daily notification limit was reached. Check for remaining subscriptions."
+          exit 1

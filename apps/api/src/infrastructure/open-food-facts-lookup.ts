@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ProductDetails } from '@food-scanner/contracts';
+import { NUTRIENT_IDS, type NutrientId, type ProductDetails } from '@food-scanner/contracts';
 import type { Nutrients, ProductFacts, ProductLookup, ProductLookupResult } from '../assessment/product-lookup.ts';
 
 export interface OpenFoodFactsOptions {
@@ -46,6 +46,11 @@ const ReplySchema = z.object({
           'energy-kcal_100g': optionalAmount, 'energy-kcal_serving': optionalAmount,
           proteins_100g: optionalAmount, proteins_serving: optionalAmount,
           fat_serving: optionalAmount, carbohydrates_100g: optionalAmount, carbohydrates_serving: optionalAmount,
+          calcium_100g: optionalAmount, calcium_serving: optionalAmount,
+          iron_100g: optionalAmount, iron_serving: optionalAmount,
+          potassium_100g: optionalAmount, potassium_serving: optionalAmount,
+          'vitamin-c_100g': optionalAmount, 'vitamin-c_serving': optionalAmount,
+          fiber_serving: optionalAmount,
         })
         .optional()
         .catch(undefined),
@@ -66,15 +71,34 @@ function withoutUndefined<T extends object>(value: T): Defined<T> {
 /** Allergen tags look like "en:milk"; the user only needs "milk". */
 const allergenName = (tag: string): string => tag.replace(/^[a-z]{2,3}:/, '').replaceAll('-', ' ').trim();
 
-function toDetails(product: ReplyProduct, allergens: string[]): ProductDetails | undefined {
-  const n = product.nutriments;
+function nutritionBasis(product: ReplyProduct) {
   const serving = textOrUndefined(product.serving_size, 64);
   const unit = product.product_quantity_unit?.toLowerCase();
   const standard = unit && ['l', 'cl', 'ml'].includes(unit) ? 'per 100 mL'
     : unit && ['kg', 'g', 'mg'].includes(unit) ? 'per 100 g' : undefined;
+  return { serving: (product.serving_quantity ?? 0) > 0 ? serving : undefined, standard };
+}
+
+const OFF_NUTRIENT_KEYS = {
+  calcium: 'calcium', iron: 'iron', potassium: 'potassium', 'vitamin-c': 'vitamin-c', protein: 'proteins', fiber: 'fiber',
+} as const satisfies Record<NutrientId, string>;
+
+function reportedNutrients(product: ReplyProduct): NutrientId[] {
+  const { serving, standard } = nutritionBasis(product);
+  return NUTRIENT_IDS.filter(nutrient => {
+    const key = OFF_NUTRIENT_KEYS[nutrient];
+    const byServing = serving ? product.nutriments?.[`${key}_serving`] : undefined;
+    const byStandard = standard ? product.nutriments?.[`${key}_100g`] : undefined;
+    return (byServing ?? byStandard ?? 0) > 0;
+  });
+}
+
+function toDetails(product: ReplyProduct, allergens: string[]): ProductDetails | undefined {
+  const n = product.nutriments;
+  const { serving, standard } = nutritionBasis(product);
   const byServing = withoutUndefined({ calories: n?.['energy-kcal_serving'], protein: n?.proteins_serving, fat: n?.fat_serving, carbs: n?.carbohydrates_serving });
   const byStandard = withoutUndefined({ calories: n?.['energy-kcal_100g'], protein: n?.proteins_100g, fat: n?.fat_100g, carbs: n?.carbohydrates_100g });
-  const nutrition = serving && (product.serving_quantity ?? 0) > 0 && (byServing.calories !== undefined || !standard)
+  const nutrition = serving && (byServing.calories !== undefined || !standard)
     ? { quantity: `per serving · ${serving}`, ...byServing } : standard ? { quantity: standard, ...byStandard } : undefined;
   const ingredients = [...new Set((product.ingredients ?? []).flatMap(item => textOrUndefined(item.text, 90) ?? []))].slice(0, 20);
   const details = {
@@ -96,6 +120,7 @@ function toProductFacts(barcode: string, product: ReplyProduct): ProductFacts {
   });
   const allergens = (product.allergens_tags ?? []).map(allergenName).map(value => value.slice(0, 90)).filter(Boolean).slice(0, MAX_ALLERGENS);
   const details = toDetails(product, allergens);
+  const reported = reportedNutrients(product);
   return {
     barcode,
     ...withoutUndefined({
@@ -106,6 +131,7 @@ function toProductFacts(barcode: string, product: ReplyProduct): ProductFacts {
     allergens,
     ...(Object.keys(nutrients).length > 0 ? { nutrientsPer100g: nutrients } : {}),
     ...(details ? { details } : {}),
+    ...(reported.length ? { reportedNutrients: reported } : {}),
   };
 }
 

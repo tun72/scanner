@@ -11,7 +11,7 @@ import { barcodeScan, draft, fakeJudge, fakeProducts, FIXED_NOW, jpegBase64, pho
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
-  it('isolates accounts and restores verdicts across sessions, retries photos and propagates deletion', async () => {
+  it('TC8 restores the saved nutrient evidence across sessions while preserving account isolation and photo handling', async () => {
     const pool = createCloudDatabase(databaseUrl!);
     const photos = new Map<string, Buffer>();
     const upload = vi.fn(async (id: string, jpeg: string) => { photos.set(id, Buffer.from(jpeg, 'base64')); })
@@ -23,7 +23,7 @@ describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
       draft: draft({
         photoDetails: {
           portionGrams: 250, calories: { min: 300, max: 400 }, protein: { min: 5, max: 7 }, fat: null, carbs: null,
-          ingredients: [{ name: 'Rice', evidence: 'seen' }, { name: 'Butter', evidence: 'possible' }],
+          ingredients: [{ name: 'Chickpeas', evidence: 'seen' }, { name: 'Butter', evidence: 'possible' }],
         },
       }),
     });
@@ -72,6 +72,15 @@ describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
       const pending = CloudScanSchema.parse(pendingResponse.json());
       expect(pending.photoState).toBe('pending');
       expect(pending.verdict.details).toMatchObject({ kind: 'photo', photo: { calories: { min: 300, max: 400 } } });
+      expect(pending.verdict.nutrientHighlights).toEqual([
+        { nutrient: 'iron', source: 'photo', ingredient: 'Chickpeas' },
+        { nutrient: 'protein', source: 'photo', ingredient: 'Chickpeas' },
+        { nutrient: 'fiber', source: 'photo', ingredient: 'Chickpeas' },
+      ]);
+      const reopened = await server.inject({ url: `/v1/history/${photoId}`, headers: headers(second) });
+      expect(reopened.statusCode).toBe(200);
+      expect(CloudScanSchema.parse(reopened.json())).toEqual(pending);
+      expect(judge.calls).toHaveLength(1);
       expect(await list(second)).toEqual([pending]);
       expect(await list(other)).toEqual([]);
       expect((await server.inject({ url: `/v1/history/${photoId}`, headers: headers(other) })).statusCode).toBe(404);
@@ -119,8 +128,35 @@ describe.skipIf(!databaseUrl)('account history with PostgreSQL', () => {
       await createCloudHistory(pool, { upload, remove, read: async () => null }).cleanOnePhoto();
       expect(photos.size).toBe(0);
 
-      expect((await server.inject({ method: 'DELETE', url: '/v1/history', headers: headers(second) })).statusCode).toBe(204);
+      const retainedPhotoId = randomUUID();
+      const retainedAsset = `food-scanner/${first.user.id}/${retainedPhotoId}`;
+      const retained = CloudScanSchema.parse((await assess(first, retainedPhotoId, photoScan())).json());
+      expect(retained.photoState).toBe('ready');
+      const pendingPhotoId = randomUUID();
+      upload.mockRejectedValueOnce(new Error('Temporary upload failure'));
+      const pendingAtClear = CloudScanSchema.parse((await assess(first, pendingPhotoId, photoScan())).json());
+      expect(pendingAtClear.photoState).toBe('pending');
+      expect((await assess(other, randomUUID(), barcodeScan())).statusCode).toBe(200);
+
+      const clear = (session: AccountSession) => server.inject({ method: 'DELETE', url: '/v1/history', headers: headers(session) });
+      const clears = await Promise.all([clear(first), clear(second)]);
+      expect(clears.map(result => result.statusCode)).toEqual([204, 204]);
       expect(await list(first)).toEqual([]);
+      expect(await list(other)).toHaveLength(1);
+      const retainedPhotoPath = `/v1/history/${retainedPhotoId}/photo`;
+      expect((await server.inject({ url: retainedPhotoPath, headers: headers(second) })).statusCode).toBe(404);
+      expect(await history.completePhoto(second.user.id, pendingPhotoId, jpegBase64())).toBeNull();
+      const { rows: audit } = await pool.query(
+        'SELECT owner_id, cleared_at, scan_count, ready_photo_count FROM history_clear_log WHERE owner_id=$1', [first.user.id],
+      );
+      expect(audit).toEqual([{ owner_id: first.user.id, cleared_at: expect.any(Date), scan_count: 4, ready_photo_count: 1 }]);
+      const { rows: queued } = await pool.query(
+        'SELECT asset_id FROM photo_deletion_queue WHERE asset_id=ANY($1)',
+        [[retainedAsset, `food-scanner/${first.user.id}/${pendingPhotoId}`]],
+      );
+      expect(queued).toEqual([]);
+      await history.cleanOnePhoto();
+      expect(photos.get(retainedAsset)).toEqual(Buffer.from(jpegBase64(), 'base64'));
       expect((await importScan(first)).statusCode).toBe(204);
       expect((await server.inject({ method: 'DELETE', url: '/v1/session', headers: headers(first) })).statusCode).toBe(204);
       expect((await server.inject({ url: '/v1/history', headers: headers(first) })).statusCode).toBe(401);

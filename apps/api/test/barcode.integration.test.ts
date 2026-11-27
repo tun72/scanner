@@ -13,6 +13,12 @@ import { claudeReply, startStandIn, type StandIn } from './stand-ins.ts';
 // A real reply from Open Food Facts for this barcode, recorded on 2026-11-17 with the fields the adapter asks for.
 const NUTELLA_BARCODE = '3017620422003';
 const recordedReply = JSON.parse(readFileSync(new URL('./fixtures/open-food-facts-3017620422003.json', import.meta.url), 'utf8'));
+const TEST_YOGURT_BARCODE = '12345678';
+const yogurtReply = { status: 1, product: {
+  product_name_my: 'ဒိန်ချဉ်', product_name: 'Plain yogurt', product_quantity_unit: 'g',
+  serving_size: '1 cup (150 g)', serving_quantity: 150,
+  nutriments: { calcium_100g: 0.1, proteins_serving: 6 },
+} };
 
 const claudeDraft = draft({
   foodName: 'Hazelnut chocolate spread',
@@ -24,7 +30,7 @@ let claude: StandIn;
 let api: FastifyInstance;
 
 beforeEach(async () => {
-  openFoodFacts = await startStandIn(() => ({ body: recordedReply }));
+  openFoodFacts = await startStandIn(request => ({ body: request.path.includes(`/${TEST_YOGURT_BARCODE}.json`) ? yogurtReply : recordedReply }));
   claude = await startStandIn(() => ({ body: claudeReply(JSON.stringify(claudeDraft)) }));
   // The real lookup adapter and the real Claude adapter, each pointed at its stand-in.
   const products = createOpenFoodFactsLookup({ baseUrl: openFoodFacts.baseURL, userAgent: 'FoodScannerTests/0.1', timeoutMs: 5000 });
@@ -40,6 +46,20 @@ afterEach(async () => {
 });
 
 describe('barcode scan through the API, Open Food Facts and the Claude SDK', () => {
+  it('TC3 uses positive as-sold nutrient data for the exact scanned barcode', async () => {
+    const scan = { ...barcodeScan(TEST_YOGURT_BARCODE), locale: 'my-MM', profile: { conditions: ['gallbladder'] } };
+    const response = await api.inject({ method: 'POST', url: '/v1/assessments', payload: scan });
+
+    expect(response.statusCode).toBe(200);
+    expect(openFoodFacts.requests).toHaveLength(1);
+    expect(openFoodFacts.requests[0]?.path).toContain(`/${TEST_YOGURT_BARCODE}.json?`);
+    expect(VerdictResponseSchema.parse(response.json())).toMatchObject({
+      foodName: 'ဒိန်ချဉ်', source: 'product', nutrientHighlights: [
+        { nutrient: 'calcium', source: 'open-food-facts' },
+        { nutrient: 'protein', source: 'open-food-facts' },
+      ],
+    });
+  });
   it('TC9 looks a known barcode up and judges the product by its listed ingredients', async () => {
     const scan = { ...barcodeScan(NUTELLA_BARCODE), profile: { conditions: ['gallbladder'] } };
 

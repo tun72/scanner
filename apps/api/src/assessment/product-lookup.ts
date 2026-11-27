@@ -1,3 +1,5 @@
+import type { NutrientId, ProductDetails } from '@food-scanner/contracts';
+
 /** What a product database knows about a packaged product, reduced to what the judgement needs. */
 export interface ProductFacts {
   barcode: string;
@@ -7,6 +9,8 @@ export interface ProductFacts {
   allergens: string[];
   nutrientsPer100g?: Nutrients;
   details?: ProductDetails;
+  /** Nutrients with positive reported amounts on a known basis for the product as sold. */
+  reportedNutrients?: NutrientId[];
 }
 
 /** Grams per 100 g of product. */
@@ -31,4 +35,3 @@ export interface ProductLookup {
   /** Never throws for provider trouble: an unreachable database is a normal result. */
   findProduct(barcode: string, locale?: string): Promise<ProductLookupResult>;
 }
-import type { ProductDetails } from '@food-scanner/contracts';

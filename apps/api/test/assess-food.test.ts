@@ -1,10 +1,15 @@
 import { MAX_PHOTO_BYTES } from '@food-scanner/contracts';
 import { describe, expect, it } from 'vitest';
 import { NOT_MEDICAL_ADVICE_NOTICE, createAssessFood } from '../src/assessment/assess-food.ts';
+import type { VerdictDraft } from '../src/assessment/verdict.ts';
 import { FIXED_NOW, NUTELLA, USAGE, barcodeScan, draft, fakeJudge, fakeProducts, jpegBase64, photoScan } from './helpers.ts';
 
-const judgeReturning = (overrides = {}) => fakeJudge({ ok: true, draft: draft(overrides), usage: USAGE });
+const judgeReturning = (overrides: Partial<VerdictDraft> = {}) => fakeJudge({ ok: true, draft: draft(overrides), usage: USAGE });
 const assessWith = (judge: ReturnType<typeof fakeJudge>, products = fakeProducts()) => createAssessFood({ judge, products, now: () => FIXED_NOW });
+const seen = (name: string) => ({ name, evidence: 'seen' as const });
+const photoWith = (ingredients: NonNullable<VerdictDraft['photoDetails']>['ingredients']) => ({
+  portionGrams: null, calories: null, protein: null, fat: null, carbs: null, ingredients,
+});
 
 describe('checking the scan request', () => {
   it.each([
@@ -34,6 +39,41 @@ describe('checking the scan request', () => {
 });
 
 describe('judging a photo', () => {
+  it('TC1 identifies iron, protein and fiber from visible chickpeas without guessing amounts', async () => {
+    const judge = judgeReturning({ foodName: 'ကုလားပဲ', photoDetails: photoWith([seen('ကုလားပဲ')]) });
+    const outcome = await assessWith(judge)(photoScan({ locale: 'my-MM' }));
+    expect(outcome).toMatchObject({ kind: 'verdict', response: { level: 'safe' } });
+    expect(outcome.kind === 'verdict' && outcome.response.nutrientHighlights).toEqual([
+      { nutrient: 'iron', source: 'photo', ingredient: 'ကုလားပဲ' },
+      { nutrient: 'protein', source: 'photo', ingredient: 'ကုလားပဲ' },
+      { nutrient: 'fiber', source: 'photo', ingredient: 'ကုလားပဲ' },
+    ]);
+  });
+
+  it.each([
+    ['low confidence', { confidence: 'low', photoDetails: photoWith([seen('Banana')]) }, 'unsure'],
+    ['medium confidence', { confidence: 'medium', photoDetails: photoWith([seen('Banana')]) }, 'safe'],
+    ['non-food', { isFood: false, photoDetails: photoWith([seen('Banana')]) }, 'unsure'],
+    ['unidentified food', { foodName: '', photoDetails: photoWith([seen('Banana')]) }, 'safe'],
+    ['hidden or unsupported ingredients', { photoDetails: photoWith([{ name: 'milk', evidence: 'possible' }, seen('rice'), seen('chicken-flavored broth')]) }, 'safe'],
+  ] as const)('TC2 drops unsupported evidence from %s and preserves the verdict', async (_name, overrides, level) => {
+    const outcome = await assessWith(judgeReturning(overrides))(photoScan());
+    expect(outcome).toMatchObject({ kind: 'verdict', response: { level } });
+    expect(outcome.kind === 'verdict' && outcome.response.nutrientHighlights).toBeUndefined();
+  });
+
+  it('TC7 keeps at most three unique nutrients with minerals first', async () => {
+    const judge = judgeReturning({ photoDetails: photoWith([
+      seen('Egg'), seen('Orange'), seen('Bananas'), seen('အာလူး'), seen('chickpeas'), seen('nonsense'), seen('Yogurt'),
+    ]) });
+    const outcome = await assessWith(judge)(photoScan());
+    expect(outcome.kind === 'verdict' && outcome.response.nutrientHighlights).toEqual([
+      { nutrient: 'calcium', source: 'photo', ingredient: 'Yogurt' },
+      { nutrient: 'iron', source: 'photo', ingredient: 'chickpeas' },
+      { nutrient: 'potassium', source: 'photo', ingredient: 'Bananas' },
+    ]);
+  });
+
   it('hands the photo, profile and language to the judge', async () => {
     const judge = judgeReturning();
     const body = photoScan({ profile: { conditions: ['gerd'], notes: 'spicy food hurts' }, locale: 'fr' });

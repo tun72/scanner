@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activeSession, signOut } from '../account/session.ts';
 import type { ScanSummary } from '../history/scan-history.ts';
 import { VERDICT_LOOKS } from '../history/verdict-look.ts';
+import { NotificationTest } from '../notifications/notification-test';
 import type { StomachProfile } from '../profile/stomach-profile.ts';
 import { profileStore, scanHistory } from '../services.ts';
 import { colors, shared } from '../theme.ts';
@@ -81,6 +82,7 @@ export default function HomeScreen() {
             <Text style={[shared.buttonText, shared.buttonSecondaryText]}>{profile ? 'အချက်အလက် ပြင်ရန်' : 'အချက်အလက် ဖြည့်ရန်'}</Text>
           </Pressable>
         </GlassCard>
+        {session && <NotificationTest />}
         {session && <Pressable style={[shared.button, shared.buttonSecondary]} onPress={() => void exit()} accessibilityRole="button">
           <Text style={[shared.buttonText, shared.buttonSecondaryText]}>အကောင့်ထွက်ရန်</Text>
         </Pressable>}

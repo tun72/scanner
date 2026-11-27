@@ -46,6 +46,22 @@ export async function migrateCloudDatabase(pool: Pool) {
       CREATE TABLE IF NOT EXISTS photo_deletion_queue (
         asset_id text PRIMARY KEY, attempt_after timestamptz NOT NULL DEFAULT now()
       );
+      CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+        endpoint text PRIMARY KEY, owner_id uuid NOT NULL REFERENCES mobile_accounts(id) ON DELETE CASCADE,
+        p256dh text NOT NULL, auth text NOT NULL, last_attempt_on date
+      );
+      CREATE TABLE IF NOT EXISTS web_push_test_requests (
+        id uuid PRIMARY KEY, endpoint text NOT NULL REFERENCES web_push_subscriptions(endpoint) ON DELETE CASCADE,
+        expires_at timestamptz NOT NULL,
+        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'expired', 'unavailable'))
+      );
+      CREATE TABLE IF NOT EXISTS history_clear_log (
+        id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_id uuid NOT NULL REFERENCES mobile_accounts(id),
+        cleared_at timestamptz NOT NULL DEFAULT now(),
+        scan_count integer NOT NULL CHECK (scan_count > 0),
+        ready_photo_count integer NOT NULL CHECK (ready_photo_count BETWEEN 0 AND scan_count)
+      );
     `);
   });
 }
