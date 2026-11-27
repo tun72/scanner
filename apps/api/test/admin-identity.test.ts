@@ -1,8 +1,17 @@
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createAdminIdentity } from '../src/admin/identity.ts';
+import { createAdminPasswordIdentity } from '../src/admin/password-identity.ts';
 
 afterEach(() => vi.unstubAllGlobals());
+
+it('requires an explicit password mode, HTTPS, and a sufficiently long password', async () => {
+  await expect(createAdminPasswordIdentity({})).resolves.toBeUndefined();
+  const env = { ADMIN_AUTH_MODE: 'password',ADMIN_EMAIL: 'admin@example.test',ADMIN_ORIGIN: 'https://scanner.example.test' };
+  await expect(createAdminPasswordIdentity({ ...env,ADMIN_PASSWORD: 'short password' })).rejects.toThrow('ADMIN_PASSWORD');
+  await expect(createAdminPasswordIdentity({ ...env,ADMIN_ORIGIN: 'https://scanner.example.test/login',ADMIN_PASSWORD: 'long fixture password' }))
+    .rejects.toThrow('ADMIN_ORIGIN');
+});
 
 it('TC1 verifies the OpenID exchange, signed identity, nonce and required MFA assurance', async () => {
   const issuer = 'https://identity.example.test';
