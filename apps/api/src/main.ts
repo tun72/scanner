@@ -3,6 +3,10 @@ import { createAssessFood } from './assessment/assess-food.ts';
 import { loadConfig } from './config.ts';
 import { loadEnv } from './env.ts';
 import { buildServer } from './http/server.ts';
+import { createAdminIdentity } from './admin/identity.ts';
+import { registerAdminRoutes } from './admin/routes.ts';
+import { createBroadcasts } from './announcements/broadcasts.ts';
+import { serveAdminWeb } from './http/admin-web.ts';
 import { serveWebApp } from './http/web-app.ts';
 import { createClaudeFoodJudge } from './infrastructure/claude-food-judge.ts';
 import { createGeminiFoodJudge } from './infrastructure/gemini-food-judge.ts';
@@ -48,7 +52,7 @@ if (database) {
 }
 const push = createWebPush(process.env);
 const cloud = database && cloudinaryUrl ? {
-  accounts: createAccounts(database), history: createCloudHistory(database, createCloudinaryMedia(cloudinaryUrl)),
+  accounts: createAccounts(database), announcements: createBroadcasts(database), history: createCloudHistory(database, createCloudinaryMedia(cloudinaryUrl)),
   ...(push && { push, pushSubscriptions: createPushSubscriptions(database, push) }),
 } : undefined;
 const webRoot = process.env.WEB_ROOT?.trim();
@@ -57,6 +61,12 @@ const server = buildServer({
   assessFood, requireFoodOnlyPhoto, trustedProxies: config.trustedProxies, logLevel: config.logLevel, ...(cloud ? { cloud } : {}),
 });
 if (webRoot) serveWebApp(server, webRoot);
+if (database) {
+  const admin = createAdminIdentity(process.env);
+  registerAdminRoutes(server,database,admin);
+  const adminRoot = process.env.ADMIN_WEB_ROOT?.trim();
+  if (admin && adminRoot) serveAdminWeb(server,adminRoot);
+}
 if (cloud && database) {
   let cleanup: Promise<void> | undefined;
   const runCleanup = () => {

@@ -53,3 +53,35 @@ export function createWebPush(env: NodeJS.ProcessEnv): WebPush | undefined {
     sendDaily: subscription => send(subscription, 3600),
   };
 }
+
+export type BroadcastPayload = { id: string; title: string; body: string };
+export type DeliveryOutcome =
+  | { status: 'accepted' | 'expired' | 'failed' }
+  | { status: 'retry'; afterMs?: number };
+
+export function createBroadcastSender(env: NodeJS.ProcessEnv) {
+  const publicKey = env.WEB_PUSH_PUBLIC_KEY?.trim();
+  const privateKey = env.WEB_PUSH_PRIVATE_KEY?.trim();
+  const subject = env.WEB_PUSH_SUBJECT?.trim();
+  if (!publicKey || !privateKey || !subject) return undefined;
+  webPush.setVapidDetails(subject,publicKey,privateKey);
+  return async (subscription: PushSubscription, message: BroadcastPayload, ttl: number): Promise<DeliveryOutcome> => {
+    if (!pushSubscriptionSchema.safeParse(subscription).success) return { status: 'failed' };
+    const topic = Buffer.from(message.id.replaceAll('-',''),'hex').toString('base64url');
+    try {
+      await webPush.sendNotification(subscription,JSON.stringify(message),{ TTL: ttl, topic, timeout: 8_000 });
+      return { status: 'accepted' };
+    } catch (error) {
+      if (error instanceof webPush.WebPushError) {
+        if (error.statusCode === 404 || error.statusCode === 410) return { status: 'expired' };
+        if (error.statusCode >= 400 && error.statusCode < 500 && ![408,429].includes(error.statusCode)) return { status: 'failed' };
+        const header = error.headers?.['retry-after'];
+        if (typeof header === 'string') {
+          const afterMs = /^\d+$/.test(header) ? Number(header)*1_000 : Date.parse(header)-Date.now();
+          if (Number.isFinite(afterMs) && afterMs > 0) return { status: 'retry',afterMs };
+        }
+      }
+      return { status: 'retry' };
+    }
+  };
+}

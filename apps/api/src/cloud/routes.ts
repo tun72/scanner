@@ -5,11 +5,13 @@ import type { createAccounts } from './accounts.ts';
 import type { CloudHistory } from './history.ts';
 import { pushEndpointSchema, pushSubscriptionSchema, type WebPush } from './web-push.ts';
 import { authorizePushJob } from './push-scheduler.ts';
+import type { createBroadcasts } from '../announcements/broadcasts.ts';
 import type { createPushSubscriptions } from './push-subscriptions.ts';
 
 export interface CloudServices {
   accounts: ReturnType<typeof createAccounts>;
   history: CloudHistory;
+  announcements?: ReturnType<typeof createBroadcasts>;
   push?: WebPush;
   pushSubscriptions?: ReturnType<typeof createPushSubscriptions>;
 }
@@ -107,6 +109,13 @@ export function registerCloudRoutes(app: FastifyInstance, cloud: CloudServices) 
         return action === 'check' ? { ready: true } : subscriptions.sendDaily();
       });
     }
+
+    const announcements = cloud.announcements;
+    if (announcements) routes.get('/v1/announcements',async (req,reply) => {
+      if (!await requireOwner(cloud,req,reply)) return;
+      const query = z.object({ after: idSchema.optional() }).safeParse(req.query).data;
+      return query ? announcements.inbox(query.after) : invalid(reply);
+    });
 
     routes.get('/v1/history', async (req, reply) => {
       const owner = await requireOwner(cloud, req, reply);

@@ -60,8 +60,8 @@ export function NotificationTest() {
   if (!setup) return null;
   return (
     <GlassCard>
-      <Text style={shared.heading}>နေ့စဉ် အသိပေးချက်</Text>
-      <Text style={shared.muted}>မြန်မာစံတော်ချိန် ည ၇:၄၅ ဝန်းကျင်မှာ Sobo ဆီက စာတိုလေး တစ်စောင် ရပါမယ်။</Text>
+      <Text style={shared.heading}>ဖုန်း အသိပေးချက်</Text>
+      <Text style={shared.muted}>Scanner ရဲ့ ကြေညာချက်တွေနဲ့ Sobo ရဲ့ နေ့စဉ်စာတိုတွေကို ဖုန်းမှာ ရနိုင်ပါတယ်။</Text>
       <Pressable style={[shared.button, shared.buttonSecondary, sending && shared.buttonDisabled]}
         accessibilityRole="button" disabled={sending} onPress={() => void toggle()}>
         <Text style={[shared.buttonText, shared.buttonSecondaryText]}>

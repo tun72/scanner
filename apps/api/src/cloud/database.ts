@@ -1,4 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
+import { migrateAdminDatabase } from '../admin/database.ts';
 
 export function createCloudDatabase(url: string) {
   return new Pool({ connectionString: url, enableChannelBinding: true, max: 8, connectionTimeoutMillis: 5000, query_timeout: 50_000 });
@@ -63,5 +64,6 @@ export async function migrateCloudDatabase(pool: Pool) {
         ready_photo_count integer NOT NULL CHECK (ready_photo_count BETWEEN 0 AND scan_count)
       );
     `);
+    await migrateAdminDatabase(db);
   });
 }
