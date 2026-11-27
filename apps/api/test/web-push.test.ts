@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createWebPush, pushSubscriptionSchema } from '../src/cloud/web-push.ts';
 import type { CloudServices } from '../src/cloud/routes.ts';
 import { buildServer } from '../src/http/server.ts';
-import { authorizePushJob } from '../src/cloud/push-scheduler.ts';
+import * as scheduler from '../src/cloud/push-scheduler.ts';
 
 vi.mock('web-push', async importOriginal => ({
   ...await importOriginal<typeof webPush>(), sendNotification: vi.fn(),
@@ -24,12 +24,53 @@ describe('PWA test notifications', () => {
         workflow_ref: 'tun72/scanner/.github/workflows/daily-push.yml@refs/heads/main',
       }).setProtectedHeader({ alg: 'RS256' }).setIssuer('https://token.actions.githubusercontent.com')
         .setAudience('scanner-daily-push').setIssuedAt().setExpirationTime('1m').sign(privateKey);
-      return authorizePushJob(`Bearer ${token}`, () => publicKey);
+      return scheduler.authorizePushJob(`Bearer ${token}`, () => publicKey);
     };
     expect(await authorize('schedule')).toBe('send');
     expect(await authorize('workflow_dispatch')).toBe('check');
     expect(await authorize('push')).toBeNull();
     expect(await authorize('schedule', '1')).toBeNull();
+  });
+
+  it('accepts a separate audience and workflow identity for scheduled broadcasts', async () => {
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const authorize = async (event: string, workflow = 'broadcast', audience = 'scanner-broadcast-push') => {
+      const token = await new SignJWT({
+        event_name: event, repository_id: '1465648520', ref: 'refs/heads/main',
+        workflow_ref: `tun72/scanner/.github/workflows/${workflow}-push.yml@refs/heads/main`,
+      }).setProtectedHeader({ alg: 'RS256' }).setIssuer('https://token.actions.githubusercontent.com')
+        .setAudience(audience).setIssuedAt().setExpirationTime('1m').sign(privateKey);
+      return scheduler.authorizeBroadcastJob(`Bearer ${token}`, () => publicKey);
+    };
+    expect(await authorize('schedule')).toBe('send');
+    expect(await authorize('workflow_dispatch')).toBe('check');
+    expect(await authorize('push')).toBeNull();
+    expect(await authorize('schedule', 'daily')).toBeNull();
+    expect(await authorize('schedule', 'broadcast', 'scanner-daily-push')).toBeNull();
+  });
+
+  it('runs broadcast delivery only for the scheduled workflow', async () => {
+    const processBroadcasts = vi.fn().mockResolvedValue(undefined);
+    const server = buildServer({
+      cloud: {
+        accounts: {} as CloudServices['accounts'], history: {} as CloudServices['history'], processBroadcasts,
+      },
+      logLevel: 'silent', assessFood: async () => { throw new Error('Unexpected scan'); },
+    });
+    const request = { method: 'POST' as const, url: '/v1/push/broadcasts' };
+    const authorize = vi.spyOn(scheduler, 'authorizeBroadcastJob');
+    try {
+      expect((await server.inject(request)).statusCode).toBe(401);
+      authorize.mockResolvedValueOnce('check');
+      expect((await server.inject(request)).json()).toEqual({ ready: true });
+      expect(processBroadcasts).not.toHaveBeenCalled();
+      authorize.mockResolvedValueOnce('send');
+      expect((await server.inject(request)).json()).toEqual({ processed: true });
+      expect(processBroadcasts).toHaveBeenCalledOnce();
+    } finally {
+      authorize.mockRestore();
+      await server.close();
+    }
   });
 
   it('accepts only secure browser push endpoints', () => {

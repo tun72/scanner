@@ -7,6 +7,8 @@ import { createAdminIdentity } from './admin/identity.ts';
 import { createAdminPasswordIdentity } from './admin/password-identity.ts';
 import { registerAdminRoutes } from './admin/routes.ts';
 import { createBroadcasts } from './announcements/broadcasts.ts';
+import { createBroadcastDelivery } from './announcements/delivery.ts';
+import { startBroadcastProcessor } from './announcements/processor.ts';
 import { serveAdminWeb } from './http/admin-web.ts';
 import { serveWebApp } from './http/web-app.ts';
 import { createClaudeFoodJudge } from './infrastructure/claude-food-judge.ts';
@@ -16,7 +18,7 @@ import { createAccounts } from './cloud/accounts.ts';
 import { createCloudDatabase, migrateCloudDatabase } from './cloud/database.ts';
 import { createCloudHistory } from './cloud/history.ts';
 import { createCloudinaryMedia } from './cloud/media.ts';
-import { createWebPush } from './cloud/web-push.ts';
+import { createBroadcastSender, createWebPush } from './cloud/web-push.ts';
 import { createPushSubscriptions } from './cloud/push-subscriptions.ts';
 
 loadEnv();
@@ -52,9 +54,13 @@ if (database) {
   }
 }
 const push = createWebPush(process.env);
+const broadcastSender = push && createBroadcastSender(process.env);
+const broadcastDelivery = database && broadcastSender && createBroadcastDelivery(database,broadcastSender);
+let broadcastProcessor: ReturnType<typeof startBroadcastProcessor> | undefined;
 const cloud = database && cloudinaryUrl ? {
   accounts: createAccounts(database), announcements: createBroadcasts(database), history: createCloudHistory(database, createCloudinaryMedia(cloudinaryUrl)),
   ...(push && { push, pushSubscriptions: createPushSubscriptions(database, push) }),
+  ...(broadcastDelivery && { processBroadcasts: async () => { await broadcastProcessor?.run(); } }),
 } : undefined;
 const webRoot = process.env.WEB_ROOT?.trim();
 if (webRoot && !cloud) throw new Error('The web app requires DATABASE_URL and CLOUDINARY_URL.');
@@ -69,6 +75,9 @@ if (database) {
   if (admin && adminRoot) serveAdminWeb(server,adminRoot);
 }
 if (cloud && database) {
+  if (broadcastDelivery) broadcastProcessor = startBroadcastProcessor(broadcastDelivery, () => {
+    server.log.warn('Scanner notification processing failed. Queued work will retry.');
+  });
   let cleanup: Promise<void> | undefined;
   const runCleanup = () => {
     cleanup ??= Promise.allSettled([
@@ -83,7 +92,7 @@ if (cloud && database) {
   timer.unref();
   server.addHook('onClose', async () => {
     clearInterval(timer);
-    await cleanup;
+    await Promise.all([cleanup,broadcastProcessor?.stop()]);
     await database.end();
   });
   runCleanup();

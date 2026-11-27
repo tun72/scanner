@@ -12,13 +12,17 @@ For multifactor sign-in, leave `ADMIN_AUTH_MODE` empty and configure a confident
 
 ## Run the delivery worker
 
-Deploy the current API image first so the additive PostgreSQL migrations run. Provision a separate Render background worker with the same image and this Docker command.
+The Scanner API processes queued broadcasts while it is running. Set `DATABASE_URL` and the existing `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` and `WEB_PUSH_SUBJECT` on the API. Reuse the current VAPID key pair so installed devices can keep their subscriptions.
+
+The `broadcast-push.yml` GitHub Actions workflow on `main` checks for due broadcasts every 20 minutes and wakes the free Render web service as needed. GitHub can delay these checks, and Render can take time to start. Sends due while the service is running are picked up approximately every 10 seconds. The manual workflow verifies scheduler access without submitting a new broadcast. Scheduled workflows on public repositories can be disabled after 60 days without repository activity.
+
+For an environment that needs continuous processing independently of the web service, the same delivery process can also run with this Docker command.
 
 ```sh
 node --import tsx apps/api/src/announcements/worker.ts
 ```
 
-Provide `DATABASE_URL` and the existing `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` and `WEB_PUSH_SUBJECT`. Reuse the current VAPID key pair. The worker also runs locally with `npm run worker:announcements --workspace @food-scanner/api`. Use a staging database with test subscriptions for the first broadcast. A stopped worker leaves queued work in PostgreSQL. Review any overdue items before restarting it. On recovery, a broadcast older than the 24-hour push window still appears in the app inbox and its push targets show as failed.
+The same command runs locally via `npm run worker:announcements --workspace @food-scanner/api`. Use a staging database with test subscriptions for the first broadcast. Queued work stays in PostgreSQL while all processors are stopped. On recovery, a broadcast older than the 24-hour push window still appears in the app inbox and its push targets show as failed.
 
 ## Send and verify
 

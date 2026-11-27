@@ -119,6 +119,7 @@ export function Broadcasts({ request }: { request: Request }) {
         <p className="field-note">All active users can read this in Scanner. Devices with alerts enabled can receive a push.</p>
         <label>Send date and time (Myanmar, UTC+6:30)<input type="datetime-local" value={sendAt}
           onChange={event => setSendAt(event.target.value)} /></label>
+        <p className="field-note">Scheduled alerts can arrive late if the server is asleep.</p>
         <div className="actions">
           <button disabled={busy || !matchesPreview} onClick={() => send('now')}>Send now</button>
           <button className="secondary" disabled={busy || !matchesPreview || !sendAt} onClick={() => send('scheduled')}>Schedule</button>

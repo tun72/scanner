@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { createAccounts } from './accounts.ts';
 import type { CloudHistory } from './history.ts';
 import { pushEndpointSchema, pushSubscriptionSchema, type WebPush } from './web-push.ts';
-import { authorizePushJob } from './push-scheduler.ts';
+import { authorizeBroadcastJob, authorizePushJob } from './push-scheduler.ts';
 import type { createBroadcasts } from '../announcements/broadcasts.ts';
 import type { createPushSubscriptions } from './push-subscriptions.ts';
 
@@ -14,6 +14,7 @@ export interface CloudServices {
   announcements?: ReturnType<typeof createBroadcasts>;
   push?: WebPush;
   pushSubscriptions?: ReturnType<typeof createPushSubscriptions>;
+  processBroadcasts?: () => Promise<void>;
 }
 
 const idSchema = z.uuid();
@@ -109,6 +110,15 @@ export function registerCloudRoutes(app: FastifyInstance, cloud: CloudServices) 
         return action === 'check' ? { ready: true } : subscriptions.sendDaily();
       });
     }
+
+    const processBroadcasts = cloud.processBroadcasts;
+    if (processBroadcasts) routes.post('/v1/push/broadcasts', { bodyLimit: 1024 }, async (req, reply) => {
+      const action = await authorizeBroadcastJob(req.headers.authorization);
+      if (!action) return reply.code(401).send();
+      if (action === 'check') return { ready: true };
+      await processBroadcasts();
+      return { processed: true };
+    });
 
     const announcements = cloud.announcements;
     if (announcements) routes.get('/v1/announcements',async (req,reply) => {

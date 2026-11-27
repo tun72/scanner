@@ -8,6 +8,7 @@ import { registerAdminRoutes } from '../src/admin/routes.ts';
 import { createAdminUsers } from '../src/admin/users.ts';
 import { createBroadcasts } from '../src/announcements/broadcasts.ts';
 import { createBroadcastDelivery } from '../src/announcements/delivery.ts';
+import { startBroadcastProcessor } from '../src/announcements/processor.ts';
 import { createAccounts, seedMobileAccount } from '../src/cloud/accounts.ts';
 import { migrateCloudDatabase } from '../src/cloud/database.ts';
 import type { CloudHistory } from '../src/cloud/history.ts';
@@ -324,6 +325,27 @@ describe.skipIf(!dbUrl)('Scanner admin portal on PostgreSQL', () => {
       expect(inbox.json().items).toMatchObject([content]);
     }
     expect(send).toHaveBeenCalledExactlyOnceWith(pushSubscription('inbox-test'),expect.objectContaining(content),expect.any(Number));
+  });
+
+  it('checks in and delivers due broadcasts when the web server starts its processor', async () => {
+    const account = await active('SERVER-PUSH');
+    await subscriptions.enable(account.user.id,pushSubscription('server-push'));
+    await enqueued();
+    const future = (await broadcasts.create(admin,randomUUID(),content))!;
+    await broadcasts.schedule(admin,future.id,{ mode: 'scheduled',version: future.version,localTime: futureTime(300_000) });
+    const send = sender();
+    const onError = vi.fn();
+    const processor = startBroadcastProcessor(delivery(send),onError);
+    try {
+      await Promise.all([processor.run(),processor.run()]);
+      const status = await broadcasts.list();
+      expect(status.workerSeenAt).toBeInstanceOf(Date);
+      expect(status.items).toMatchObject([{ publishedAt: null },{ counts: { accepted: 1 } }]);
+      expect(send).toHaveBeenCalledOnce();
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      await processor.stop();
+    }
   });
 
   it('TC16 retires expired subscriptions, skips replaced devices and bounds transient delivery retries', async () => {

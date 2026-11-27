@@ -1,0 +1,30 @@
+name: Scanner scheduled broadcasts
+
+on:
+  schedule:
+    # Leave a gap between checks so the free Render service can idle.
+    - cron: '7,27,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+jobs:
+  broadcast-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Scanner for due broadcasts
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-max-time 120 \
+            https://food-scanner-api-pc78.onrender.com/health | jq -e '.status == "ok"'
+          identity=$(curl --fail --silent --show-error --max-time 20 \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=scanner-broadcast-push" | jq -er '.value')
+          echo "::add-mask::$identity"
+          result=$(curl --fail --silent --show-error --max-time 90 --retry 2 --retry-max-time 120 \
+            --header "Authorization: Bearer $identity" --request POST \
+            https://food-scanner-api-pc78.onrender.com/v1/push/broadcasts)
+          jq -e --arg event "$GITHUB_EVENT_NAME" \
+            'if $event == "workflow_dispatch" then .ready == true else .processed == true end' <<< "$result"
